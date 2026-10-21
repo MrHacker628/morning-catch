@@ -1,0 +1,11 @@
+# ---- Secrets: NEVER push these to GitHub ----
+includes/config.php
+.env
+*.key
+
+# ---- Local / OS junk ----
+.DS_Store
+Thumbs.db
+.vscode/
+node_modules/
+*.log

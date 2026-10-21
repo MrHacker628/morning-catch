@@ -1,0 +1,26 @@
+# =====================================================================
+#  Morning Catch — Apache/LiteSpeed rules (Hostinger reads this file)
+# =====================================================================
+
+# No folder listings
+Options -Indexes
+
+# Block private folders and files from the browser
+RedirectMatch 404 /(includes|database|\.git)(/|$)
+<FilesMatch "(\.(sql|md|log|bak)|^\.gitignore|^\.env|config.*\.php)$">
+    Require all denied
+</FilesMatch>
+
+# Basic security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Force HTTPS (enable SSL in hPanel first — it's free)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>

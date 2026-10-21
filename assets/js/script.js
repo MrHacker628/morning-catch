@@ -198,7 +198,9 @@
     if (state.demo) return;
     try {
       const data = await api('get_products.php');
+      if (data.settings) Object.assign(CONFIG, data.settings);
       state.products = (data.products || []).map(normaliseProduct);
+      updateCutoff();
       renderProducts();
     } catch { /* not critical */ }
   }
@@ -247,14 +249,24 @@
 
     $('#cutoffLabel').textContent = `Bookings close at ${label}`;
 
+    // The seller switched bookings off from /admin (or the server says it's past cutoff)
+    if (!state.demo && CONFIG.BOOKING_OPEN === false) {
+      $('#cutoffLabel').textContent = 'Closed for bookings';
+      $('#cutoffTimer').textContent = CONFIG.CLOSED_REASON || 'See you tomorrow morning';
+      $('#statusDot').classList.replace('bg-emerald-400', 'bg-coral');
+      $('#statusPing').classList.add('hidden');
+      state.bookingOpen = false;
+      return;
+    }
+
     if (diff > 0) {
       const hrs = Math.floor(diff / 3_600_000);
       const mins = Math.floor((diff % 3_600_000) / 60_000);
       $('#cutoffTimer').textContent = hrs ? `${hrs} hr ${mins} min left` : `Only ${mins} min left — hurry!`;
       state.bookingOpen = true;
-    } else if (state.demo) {
-      // In preview we keep ordering open so the flow can be tested any time of day
-      $('#cutoffTimer').textContent = 'Closed for today (left open in preview)';
+    } else if (state.demo || CONFIG.IGNORE_CUTOFF) {
+      // Preview, or the server's testing switch (shop.ignore_cutoff): keep ordering open
+      $('#cutoffTimer').textContent = state.demo ? 'Closed for today (left open in preview)' : 'Past cutoff (left open: testing mode)';
       state.bookingOpen = true;
     } else {
       $('#cutoffTimer').textContent = 'Closed for today — see you tomorrow morning';
@@ -721,8 +733,10 @@
     $('#successSlot').textContent = r.slot ? `${r.fulfilment === 'pickup' ? 'Pickup' : 'Delivery'}: ${r.slot} today` : '';
 
     const channels = [r.whatsapp_sent && 'WhatsApp', r.email_sent && 'email'].filter(Boolean);
-    $('#successNotify').textContent = channels.length
-      ? `Receipt sent to your ${channels.join(' and ')}${r.demo ? ' (simulated in preview)' : ''}. Show the Order ID when you collect.`
+    $('#successNotify').textContent = r.demo
+      ? 'Preview only: no real payment was taken and no WhatsApp or email was sent. Real receipts start once the site is live on Hostinger.'
+      : channels.length
+      ? `Receipt sent to your ${channels.join(' and ')}. Show the Order ID when you collect.`
       : 'Save your Order ID — show it when you collect. Your receipt will follow shortly.';
 
     $('#success').classList.remove('hidden');

@@ -11,6 +11,7 @@
 --    products     → the "Catch of the Day" the seller updates each morning
 --    orders       → one row per checkout (customer + payment details)
 --    order_items  → the fish inside each order (a buyer can book several)
+--    settings     → shop settings the seller edits from /admin
 --
 --  Why a separate order_items table?
 --    Buyers often want 1 kg Mackerel + 2 Pomfret in one go. Keeping items
@@ -140,7 +141,27 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 
 -- ---------------------------------------------------------------------
---  4. SAMPLE DATA — a typical morning's catch (edit freely)
+--  4. SETTINGS — things the seller changes from the admin page
+--  (landing time, booking cutoff, delivery fee, open/closed today).
+--  Anything not set here falls back to the config file.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS settings (
+    setting_key     VARCHAR(50)    NOT NULL,
+    setting_value   VARCHAR(255)   NOT NULL,
+    updated_at      TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (setting_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO settings (setting_key, setting_value) VALUES
+    ('landed_at',           '5:45 AM'),
+    ('cutoff',              '10:30'),
+    ('delivery_fee',        '40'),
+    ('free_delivery_above', '999'),
+    ('booking_open',        '1');
+
+
+-- ---------------------------------------------------------------------
+--  5. SAMPLE DATA — a typical morning's catch (edit freely)
 -- ---------------------------------------------------------------------
 INSERT INTO products
     (name, local_name, description, category, unit, price, min_qty, step_qty,
