@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- =================================================================
+       MORNING CATCH — Fresh fish pre-booking
+       Single page: today's catch → cart → checkout → Razorpay → receipt.
+       All behaviour lives in assets/js/script.js
+       ================================================================= -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Morning Catch · Book today's fresh fish</title>
+  <meta name="description" content="Fresh fish landed this morning. Book online, pay securely, and we keep it aside for you." />
+  <meta name="theme-color" content="#0B2733" />
+
+  <!-- Fonts: Fraunces (warm display serif) + Plus Jakarta Sans (clean, readable body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind via CDN (fine for a small shop site; see deployment notes for a faster build later) -->
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script>
+    // Brand palette: "harbour at dawn" — deep sea ink, teal water, sunrise coral, saffron sun, sand
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink:   { DEFAULT: '#0B2733', soft: '#33505C' },
+            sea:   { DEFAULT: '#0E6B74', light: '#DDF0EE' },
+            coral: { DEFAULT: '#F2643D', dark: '#D24E2A', light: '#FDE7DF' },
+            sun:   { DEFAULT: '#F5B53F', light: '#FDF1D6' },
+            sand:  { DEFAULT: '#FBF6EE', dark: '#F1E8DA' },
+          },
+          fontFamily: {
+            display: ['Fraunces', 'Georgia', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            card: '0 1px 2px rgba(11,39,51,.06), 0 8px 24px -12px rgba(11,39,51,.18)',
+            lift: '0 20px 40px -16px rgba(11,39,51,.35)',
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Razorpay Checkout overlay -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+
+  <style>
+    /* Small extras Tailwind's CDN build doesn't cover nicely */
+    html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
+    body { padding-bottom: env(safe-area-inset-bottom); }
+
+    /* Hide number spinners — we use our own +/- stepper */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+
+    /* Gentle bob for the hero boat */
+    @keyframes bob { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-4px) rotate(1deg); } }
+    .bob { animation: bob 4s ease-in-out infinite; transform-origin: center; }
+
+    /* Drifting wave */
+    @keyframes drift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .drift { animation: drift 18s linear infinite; }
+
+    /* Sheet + modal transitions */
+    .sheet { transition: transform .32s cubic-bezier(.2,.8,.2,1); }
+    .backdrop { transition: opacity .25s ease; }
+
+    /* Card entrance */
+    @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    .rise { animation: rise .45s ease both; }
+
+    /* Cart badge pop when something is added */
+    @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+    .pop { animation: pop .35s ease; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bob, .drift, .rise, .pop { animation: none !important; }
+      .sheet, .backdrop { transition: none !important; }
+    }
+
+    /* Skeleton shimmer while products load */
+    .skeleton { background: linear-gradient(90deg, #F1E8DA 25%, #F8F1E6 50%, #F1E8DA 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+  </style>
+</head>
+
+<body class="bg-sand font-sans text-ink antialiased">
+
+  <!-- =================================================================
+       1. TOP BAR — brand + cart button (always visible)
+       ================================================================= -->
+  <header class="sticky top-0 z-30 bg-ink/95 text-sand backdrop-blur supports-[backdrop-filter]:bg-ink/85">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+      <a href="#" class="flex items-center gap-2.5" aria-label="Morning Catch home">
+        <!-- Logo mark: sun rising over a wave -->
+        <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="20" r="20" fill="#F2643D"/>
+          <circle cx="20" cy="22" r="8" fill="#F5B53F"/>
+          <path d="M0 26c5 0 5-3 10-3s5 3 10 3 5-3 10-3 5 3 10 3v14H0z" fill="#0E6B74"/>
+          <path d="M0 31c5 0 5-3 10-3s5 3 10 3 5-3 10-3 5 3 10 3v9H0z" fill="#0B2733" opacity=".55"/>
+        </svg>
+        <div class="leading-tight">
+          <!-- ✏️ Change the shop name here -->
+          <p class="font-display text-lg font-bold tracking-tight">Morning Catch</p>
+          <p class="text-[11px] text-sand/60">Fresh off the boat, kept aside for you</p>
+        </div>
+      </a>
+
+      <button id="cartBtn" type="button"
+              class="relative flex items-center gap-2 rounded-full bg-sand/10 px-3.5 py-2 text-sm font-semibold hover:bg-sand/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-sun"
+              aria-label="Open your basket">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18l-2 12H5L3 6zm5 0V5a4 4 0 018 0v1"/>
+        </svg>
+        <span class="hidden sm:inline">Basket</span>
+        <span id="cartCount"
+              class="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-coral px-1 text-[11px] font-bold text-white hidden">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Demo-mode ribbon (script.js shows this when the PHP backend isn't reachable yet) -->
+  <div id="demoBanner" class="hidden bg-sun-light px-4 py-2 text-center text-xs font-medium text-ink">
+    Preview mode — showing sample fish and a simulated payment. Upload to Hostinger to go live.
+  </div>
+
+  <main>
+    <!-- ===============================================================
+         2. HERO — dawn scene, today's status and booking cutoff
+         =============================================================== -->
+    <section class="relative overflow-hidden bg-gradient-to-b from-ink via-[#14505C] to-[#E88A5C] text-sand">
+      <!-- Sun -->
+      <div class="pointer-events-none absolute left-1/2 top-[58%] h-56 w-56 -translate-x-1/2 rounded-full bg-sun/80 blur-[2px] md:left-[72%] md:top-[40%] md:h-72 md:w-72"></div>
+      <div class="pointer-events-none absolute left-1/2 top-[58%] h-80 w-80 -translate-x-1/2 rounded-full bg-sun/20 blur-3xl md:left-[72%] md:top-[30%]"></div>
+
+      <div class="relative mx-auto grid max-w-6xl gap-8 px-4 pb-28 pt-8 md:grid-cols-2 md:pb-36 md:pt-14">
+        <div>
+          <!-- Live status pill: "Boats are in" + landing time -->
+          <div class="inline-flex items-center gap-2 rounded-full bg-sand/10 px-3 py-1.5 text-xs font-semibold ring-1 ring-sand/15">
+            <span class="relative flex h-2 w-2">
+              <span id="statusPing" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span id="statusDot" class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
+            </span>
+            <span id="landedText">Today's catch landed at 5:45 AM</span>
+          </div>
+
+          <h1 class="mt-4 font-display text-[2.4rem] font-bold leading-[1.05] tracking-tight md:text-6xl">
+            Book your fish<br class="hidden sm:block" /> before it's <span class="italic text-sun">gone.</span>
+          </h1>
+          <p class="mt-4 max-w-md text-[15px] leading-relaxed text-sand/80">
+            Pick from this morning's catch, pay online in seconds, and we'll clean it, cut it your way and keep it aside — no market rush.
+          </p>
+
+          <!-- Booking cutoff countdown -->
+          <div id="cutoffBox" class="mt-6 inline-flex items-center gap-3 rounded-2xl bg-ink/40 px-4 py-3 ring-1 ring-sand/10 backdrop-blur">
+            <svg class="h-5 w-5 text-sun" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 2"/>
+            </svg>
+            <div class="text-sm leading-tight">
+              <p class="text-sand/70" id="cutoffLabel">Bookings close at 10:30 AM</p>
+              <p class="font-semibold" id="cutoffTimer">—</p>
+            </div>
+          </div>
+
+          <div class="mt-6 flex flex-wrap gap-3">
+            <a href="#catch" class="rounded-full bg-coral px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:bg-coral-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-sun">
+              See today's catch
+            </a>
+            <a href="#how" class="rounded-full px-5 py-3 text-sm font-semibold text-sand ring-1 ring-sand/30 transition hover:bg-sand/10">
+              How it works
+            </a>
+          </div>
+        </div>
+
+        <!-- Little fishing boat illustration (desktop + tablet) -->
+        <div class="relative hidden items-end justify-center md:flex">
+          <svg class="bob relative z-10 w-72" viewBox="0 0 300 200" aria-hidden="true">
+            <path d="M150 20 L150 120" stroke="#0B2733" stroke-width="5" stroke-linecap="round"/>
+            <path d="M155 28 L230 110 L155 110 Z" fill="#FBF6EE"/>
+            <path d="M145 40 L90 110 L145 110 Z" fill="#FDE7DF"/>
+            <path d="M40 125 H260 L235 170 Q150 185 65 170 Z" fill="#0B2733"/>
+            <path d="M52 140 H248" stroke="#F2643D" stroke-width="7"/>
+            <circle cx="110" cy="155" r="4" fill="#F5B53F"/><circle cx="150" cy="157" r="4" fill="#F5B53F"/><circle cx="190" cy="155" r="4" fill="#F5B53F"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Waves at the bottom of the hero -->
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-24 overflow-hidden">
+        <svg class="drift absolute bottom-6 h-16 w-[200%] text-sea/70" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true">
+          <path fill="currentColor" d="M0 30 Q75 0 150 30 T300 30 T450 30 T600 30 T750 30 T900 30 T1050 30 T1200 30 V60 H0Z"/>
+        </svg>
+        <svg class="absolute bottom-0 h-14 w-full text-sand" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true">
+          <path fill="currentColor" d="M0 35 C200 5 400 55 600 30 S1000 5 1200 30 V60 H0Z"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ===============================================================
+         3. HOW IT WORKS — three tiny steps (builds trust for first-timers)
+         =============================================================== -->
+    <section id="how" class="mx-auto -mt-10 max-w-6xl px-4">
+      <ol class="relative z-10 grid grid-cols-3 gap-2 rounded-3xl bg-white p-3 shadow-card sm:gap-4 sm:p-5">
+        <li class="flex flex-col items-center gap-1.5 text-center sm:flex-row sm:gap-3 sm:text-left">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sea-light text-sea">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12c3-5 9-6 13-3l3-2v10l-3-2c-4 3-10 2-13-3z"/><circle cx="14" cy="11" r="1" fill="currentColor"/></svg>
+          </span>
+          <div><p class="text-[13px] font-semibold sm:text-sm">Pick your fish</p><p class="hidden text-xs text-ink-soft sm:block">Choose quantity &amp; cut</p></div>
+        </li>
+        <li class="flex flex-col items-center gap-1.5 text-center sm:flex-row sm:gap-3 sm:text-left">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sun-light text-[#B57A10]">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>
+          </span>
+          <div><p class="text-[13px] font-semibold sm:text-sm">Pay online</p><p class="hidden text-xs text-ink-soft sm:block">UPI, cards, netbanking</p></div>
+        </li>
+        <li class="flex flex-col items-center gap-1.5 text-center sm:flex-row sm:gap-3 sm:text-left">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-coral-light text-coral">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+          </span>
+          <div><p class="text-[13px] font-semibold sm:text-sm">We keep it aside</p><p class="hidden text-xs text-ink-soft sm:block">Receipt on WhatsApp</p></div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ===============================================================
+         4. CATCH OF THE DAY — product grid (filled by script.js)
+         =============================================================== -->
+    <section id="catch" class="mx-auto max-w-6xl scroll-mt-20 px-4 pb-36 pt-10">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.18em] text-coral">Catch of the day</p>
+          <h2 class="mt-1 font-display text-3xl font-bold tracking-tight" id="catchDate">Today</h2>
+        </div>
+        <!-- Filter chips -->
+        <div class="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="Filter fish">
+          <button class="filter-chip rounded-full bg-ink px-4 py-2 text-sm font-semibold text-sand" data-filter="all" role="tab" aria-selected="true">All</button>
+          <button class="filter-chip rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card" data-filter="fish" role="tab" aria-selected="false">Fish</button>
+          <button class="filter-chip rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink shadow-card" data-filter="shellfish" role="tab" aria-selected="false">Prawns &amp; crabs</button>
+        </div>
+      </div>
+
+      <!-- Grid: 1 column on phones, 2 on tablets, 3 on desktop -->
+      <div id="productGrid" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-live="polite">
+        <!-- Skeleton placeholders while loading -->
+        <div class="h-72 rounded-3xl skeleton"></div>
+        <div class="hidden h-72 rounded-3xl skeleton sm:block"></div>
+        <div class="hidden h-72 rounded-3xl skeleton lg:block"></div>
+      </div>
+
+      <p id="emptyState" class="mt-10 hidden rounded-3xl bg-white p-8 text-center text-ink-soft shadow-card">
+        The boats are still out. Check back in a little while!
+      </p>
+    </section>
+  </main>
+
+  <!-- =================================================================
+       5. FOOTER
+       ================================================================= -->
+  <footer class="bg-ink pb-28 pt-10 text-sand/80">
+    <div class="mx-auto grid max-w-6xl gap-6 px-4 text-sm sm:grid-cols-3">
+      <div>
+        <p class="font-display text-lg font-bold text-sand">Morning Catch</p>
+        <p class="mt-2 leading-relaxed">Fresh fish every morning, booked online and kept aside for you.</p>
+      </div>
+      <div>
+        <p class="font-semibold text-sand">Timings</p>
+        <p class="mt-2">Catch lands ~5:30 AM<br />Bookings close 10:30 AM<br />Delivery 7 AM – 12 PM</p>
+      </div>
+      <div>
+        <p class="font-semibold text-sand">Questions?</p>
+        <!-- ✏️ Replace 91XXXXXXXXXX with the seller's WhatsApp number -->
+        <a href="https://wa.me/91XXXXXXXXXX" class="mt-2 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2 font-semibold text-white">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 00-8.6 15.1L2 22l5-1.3A10 10 0 1012 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-3.3-.8-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.3.5-.4.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.6-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg>
+          Chat on WhatsApp
+        </a>
+      </div>
+    </div>
+    <p class="mx-auto mt-8 max-w-6xl px-4 text-xs text-sand/40">© <span id="year"></span> Morning Catch · Payments secured by Razorpay</p>
+  </footer>
+
+  <!-- =================================================================
+       6. STICKY BASKET BAR — appears once something is in the basket.
+          Thumb-friendly on phones; the main call to action.
+       ================================================================= -->
+  <div id="cartBar" class="fixed inset-x-0 bottom-0 z-30 translate-y-full px-3 pb-[max(12px,env(safe-area-inset-bottom))] transition-transform duration-300">
+    <button id="cartBarBtn" type="button"
+            class="mx-auto flex w-full max-w-xl items-center justify-between rounded-2xl bg-coral px-5 py-4 text-left text-white shadow-lift transition hover:bg-coral-dark focus:outline-none focus-visible:ring-4 focus-visible:ring-sun/60">
+      <span>
+        <span id="cartBarItems" class="block text-xs font-medium text-white/80">0 items</span>
+        <span id="cartBarTotal" class="block text-lg font-bold">₹0</span>
+      </span>
+      <span class="flex items-center gap-2 font-semibold">
+        Review &amp; pay
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </span>
+    </button>
+  </div>
+
+  <!-- =================================================================
+       7. CHECKOUT SHEET
+          Phones: slides up from the bottom (bottom sheet).
+          Desktop: slides in from the right as a side panel.
+       ================================================================= -->
+  <div id="checkout" class="fixed inset-0 z-40 hidden" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
+    <div id="checkoutBackdrop" class="backdrop absolute inset-0 bg-ink/60 opacity-0"></div>
+
+    <div id="checkoutPanel"
+         class="sheet absolute inset-x-0 bottom-0 flex max-h-[94vh] translate-y-full flex-col rounded-t-[28px] bg-sand
+                md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[440px] md:translate-x-full md:translate-y-0 md:rounded-none md:rounded-l-[28px]">
+
+      <!-- Sheet header -->
+      <div class="flex items-center justify-between px-5 pb-3 pt-3">
+        <div class="mx-auto mb-1 h-1.5 w-10 rounded-full bg-ink/15 md:hidden" aria-hidden="true"></div>
+      </div>
+      <div class="flex items-center justify-between px-5 pb-3">
+        <h2 id="checkoutTitle" class="font-display text-2xl font-bold">Your basket</h2>
+        <button id="closeCheckout" type="button" class="grid h-9 w-9 place-items-center rounded-full bg-white shadow-card hover:bg-sand-dark" aria-label="Close">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <!-- Scrollable body -->
+      <div class="flex-1 overflow-y-auto px-5 pb-4">
+        <!-- 7a. Basket items (filled by script.js) -->
+        <ul id="cartList" class="space-y-2.5"></ul>
+        <p id="cartEmpty" class="hidden rounded-2xl bg-white p-6 text-center text-sm text-ink-soft">
+          Your basket is empty. Add some fish to get started.
+        </p>
+
+        <!-- 7b. Customer form -->
+        <form id="checkoutForm" class="mt-6 space-y-4" novalidate>
+          <!-- Delivery or pickup toggle -->
+          <fieldset>
+            <legend class="mb-2 text-sm font-semibold">How would you like it?</legend>
+            <div class="grid grid-cols-2 gap-2 rounded-2xl bg-sand-dark p-1">
+              <label class="cursor-pointer">
+                <input type="radio" name="fulfilment" value="delivery" class="peer sr-only" checked />
+                <span class="block rounded-xl px-3 py-2.5 text-center text-sm font-semibold text-ink-soft transition peer-checked:bg-white peer-checked:text-ink peer-checked:shadow-card">
+                  🛵 Home delivery
+                </span>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="fulfilment" value="pickup" class="peer sr-only" />
+                <span class="block rounded-xl px-3 py-2.5 text-center text-sm font-semibold text-ink-soft transition peer-checked:bg-white peer-checked:text-ink peer-checked:shadow-card">
+                  🏪 Pick up at stall
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
+          <!-- Time slot chips (filled by script.js) -->
+          <fieldset>
+            <legend class="mb-2 text-sm font-semibold" id="slotLegend">Delivery time</legend>
+            <div id="slotList" class="grid grid-cols-2 gap-2"></div>
+            <p class="field-error mt-1 hidden text-xs font-medium text-coral-dark" data-for="slot"></p>
+          </fieldset>
+
+          <div>
+            <label for="name" class="mb-1.5 block text-sm font-semibold">Your name</label>
+            <input id="name" name="name" type="text" autocomplete="name" required maxlength="100"
+                   class="w-full rounded-xl border-0 bg-white px-4 py-3.5 text-base shadow-card ring-1 ring-ink/10 placeholder:text-ink/35 focus:ring-2 focus:ring-sea"
+                   placeholder="e.g. Anita Fernandes" />
+            <p class="field-error mt-1 hidden text-xs font-medium text-coral-dark" data-for="name"></p>
+          </div>
+
+          <div>
+            <label for="phone" class="mb-1.5 block text-sm font-semibold">WhatsApp number</label>
+            <div class="flex rounded-xl bg-white shadow-card ring-1 ring-ink/10 focus-within:ring-2 focus-within:ring-sea">
+              <span class="flex items-center gap-1 border-r border-ink/10 pl-4 pr-3 text-base font-semibold text-ink-soft">🇮🇳 +91</span>
+              <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" required maxlength="10"
+                     class="w-full rounded-r-xl border-0 bg-transparent px-3 py-3.5 text-base placeholder:text-ink/35 focus:ring-0"
+                     placeholder="98765 43210" />
+            </div>
+            <p class="mt-1 text-xs text-ink-soft">Your receipt comes here on WhatsApp.</p>
+            <p class="field-error mt-1 hidden text-xs font-medium text-coral-dark" data-for="phone"></p>
+          </div>
+
+          <div>
+            <label for="email" class="mb-1.5 block text-sm font-semibold">Email</label>
+            <input id="email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="150"
+                   class="w-full rounded-xl border-0 bg-white px-4 py-3.5 text-base shadow-card ring-1 ring-ink/10 placeholder:text-ink/35 focus:ring-2 focus:ring-sea"
+                   placeholder="you@example.com" />
+            <p class="field-error mt-1 hidden text-xs font-medium text-coral-dark" data-for="email"></p>
+          </div>
+
+          <div id="addressWrap">
+            <label for="address" class="mb-1.5 block text-sm font-semibold">Delivery address</label>
+            <textarea id="address" name="address" rows="3" autocomplete="street-address" maxlength="400"
+                      class="w-full rounded-xl border-0 bg-white px-4 py-3.5 text-base shadow-card ring-1 ring-ink/10 placeholder:text-ink/35 focus:ring-2 focus:ring-sea"
+                      placeholder="House no., building, street, landmark"></textarea>
+            <p class="field-error mt-1 hidden text-xs font-medium text-coral-dark" data-for="address"></p>
+          </div>
+
+          <div>
+            <label for="notes" class="mb-1.5 block text-sm font-semibold">Note for the seller <span class="font-normal text-ink-soft">(optional)</span></label>
+            <input id="notes" name="notes" type="text" maxlength="200"
+                   class="w-full rounded-xl border-0 bg-white px-4 py-3.5 text-base shadow-card ring-1 ring-ink/10 placeholder:text-ink/35 focus:ring-2 focus:ring-sea"
+                   placeholder="e.g. Keep the heads, extra cleaning" />
+          </div>
+
+          <!-- Remember me: saves name/phone/address on this phone for tomorrow -->
+          <label class="flex items-center gap-2.5 text-sm text-ink-soft">
+            <input id="remember" type="checkbox" class="h-5 w-5 rounded border-ink/20 text-sea focus:ring-sea" checked />
+            Remember my details on this phone
+          </label>
+        </form>
+      </div>
+
+      <!-- Sheet footer: bill summary + pay button (always visible) -->
+      <div class="border-t border-ink/10 bg-white px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-4 md:rounded-bl-[28px]">
+        <dl class="space-y-1 text-sm">
+          <div class="flex justify-between text-ink-soft"><dt>Fish total</dt><dd id="sumSubtotal">₹0</dd></div>
+          <div class="flex justify-between text-ink-soft"><dt id="sumDeliveryLabel">Delivery</dt><dd id="sumDelivery">₹0</dd></div>
+          <div class="flex justify-between pt-1 text-base font-bold"><dt>To pay</dt><dd id="sumTotal">₹0</dd></div>
+        </dl>
+        <p id="freeDeliveryHint" class="mt-2 hidden rounded-lg bg-sea-light px-3 py-1.5 text-xs font-medium text-sea"></p>
+        <button id="payBtn" type="submit" form="checkoutForm"
+                class="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-coral py-4 text-base font-bold text-white shadow-lift transition hover:bg-coral-dark disabled:cursor-not-allowed disabled:opacity-60">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+          <span id="payBtnText">Pay ₹0 securely</span>
+        </button>
+        <p class="mt-2 text-center text-[11px] text-ink-soft">UPI · Cards · Netbanking · Wallets — via Razorpay</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================
+       8. SUCCESS SCREEN — shown after payment is verified
+       ================================================================= -->
+  <div id="success" class="fixed inset-0 z-50 hidden overflow-y-auto bg-ink/70 px-4 py-8 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="successTitle">
+    <div class="rise mx-auto max-w-md overflow-hidden rounded-[28px] bg-sand shadow-lift">
+      <div class="relative bg-gradient-to-br from-sea to-ink px-6 pb-8 pt-8 text-center text-sand">
+        <div class="mx-auto grid h-16 w-16 place-items-center rounded-full bg-sun text-ink">
+          <svg class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <h2 id="successTitle" class="mt-4 font-display text-3xl font-bold">It's yours!</h2>
+        <p class="mt-1 text-sm text-sand/80">Payment received. Your fish is being kept aside.</p>
+      </div>
+
+      <!-- Ticket-style receipt -->
+      <div class="relative px-6 py-6">
+        <div class="absolute -top-3 left-0 right-0 flex justify-between px-0" aria-hidden="true">
+          <span class="-ml-3 h-6 w-6 rounded-full bg-ink/70"></span>
+          <span class="-mr-3 h-6 w-6 rounded-full bg-ink/70"></span>
+        </div>
+        <div class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-card">
+          <span class="text-xs font-semibold uppercase tracking-wider text-ink-soft">Order ID</span>
+          <span id="successOrderId" class="font-mono text-base font-bold">—</span>
+        </div>
+        <ul id="successItems" class="mt-4 space-y-2 text-sm"></ul>
+        <div class="mt-4 flex justify-between border-t border-dashed border-ink/20 pt-3 text-base font-bold">
+          <span>Paid</span><span id="successTotal">₹0</span>
+        </div>
+        <p id="successSlot" class="mt-3 text-sm text-ink-soft"></p>
+
+        <div class="mt-5 flex items-start gap-3 rounded-2xl bg-sea-light p-3 text-sm text-sea">
+          <svg class="mt-0.5 h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <span id="successNotify">Your receipt is on its way to WhatsApp and email.</span>
+        </div>
+
+        <button id="successDone" type="button" class="mt-5 w-full rounded-2xl bg-ink py-3.5 font-semibold text-sand hover:bg-ink-soft">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================
+       9. TOAST — small feedback messages ("Added to basket")
+       ================================================================= -->
+  <div id="toast" class="pointer-events-none fixed inset-x-0 top-20 z-[60] flex justify-center px-4 opacity-0 transition-opacity duration-200" role="status" aria-live="polite">
+    <div id="toastInner" class="rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-sand shadow-lift"></div>
+  </div>
+
+  <!-- Full-screen loader while talking to the server / Razorpay -->
+  <div id="loader" class="fixed inset-0 z-[70] hidden place-items-center bg-sand/80 backdrop-blur-sm">
+    <div class="flex flex-col items-center gap-3">
+      <svg class="h-10 w-10 animate-spin text-coral" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity=".2"/><path d="M22 12a10 10 0 00-10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      <p id="loaderText" class="text-sm font-semibold">Please wait…</p>
+    </div>
+  </div>
+
+  <script src="assets/js/script.js"></script>
+</body>
+</html>
