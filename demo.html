@@ -1,0 +1,222 @@
+<title>Morning Catch Preview</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  /* Layout: one narrow column — a short briefing, then the doors into the site. */
+  :root {
+    --ink:        #0B2733;
+    --ink-soft:   #33505C;
+    --sea:        #0E6B74;
+    --coral:      #F2643D;
+    --sun:        #F5B53F;
+    --sand:       #FBF6EE;
+    --surface:    #FFFFFF;
+    --rule:       rgba(11, 39, 51, .12);
+    --shadow:     0 1px 2px rgba(11,39,51,.06), 0 8px 24px -12px rgba(11,39,51,.18);
+    --display: 'Fraunces', Georgia, serif;
+    --body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink:      #EAF1F0;
+      --ink-soft: #9DB3B9;
+      --sea:      #6FC2C0;
+      --coral:    #FF8360;
+      --sun:      #F5B53F;
+      --sand:     #08181F;
+      --surface:  #0F2832;
+      --rule:     rgba(234, 241, 240, .14);
+      --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink:      #EAF1F0;
+    --ink-soft: #9DB3B9;
+    --sea:      #6FC2C0;
+    --coral:    #FF8360;
+    --sun:      #F5B53F;
+    --sand:     #08181F;
+    --surface:  #0F2832;
+    --rule:     rgba(234, 241, 240, .14);
+    --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--sand);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 2.5rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .eyebrow {
+    font-size: .72rem; font-weight: 700; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--coral); margin: 0;
+  }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 7vw, 2.9rem);
+    line-height: 1.05; font-weight: 700; margin: .35rem 0 0;
+    text-wrap: balance; letter-spacing: -.01em;
+  }
+  h2 {
+    font-family: var(--display);
+    font-size: 1.3rem; font-weight: 700; margin: 0 0 .75rem;
+  }
+  p { margin: 0 0 .9rem; }
+  p:last-child { margin-bottom: 0; }
+  .lede { color: var(--ink-soft); font-size: 1.05rem; margin-top: .9rem; }
+
+  .card {
+    background: var(--surface);
+    border-radius: 1.5rem;
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+  }
+
+  .cta {
+    display: inline-flex; align-items: center; gap: .6rem;
+    background: var(--coral); color: #fff;
+    font-weight: 700; font-size: 1.05rem;
+    padding: .95rem 1.6rem; border-radius: 999px;
+    text-decoration: none;
+    box-shadow: 0 20px 40px -16px rgba(11,39,51,.45);
+  }
+  .cta:hover { filter: brightness(.95); }
+  .cta svg { width: 1.1em; height: 1.1em; }
+
+  ul { margin: 0; padding-left: 1.15rem; }
+  li { margin-bottom: .45rem; }
+  li:last-child { margin-bottom: 0; }
+  .muted { color: var(--ink-soft); }
+
+  .split { display: grid; gap: 1.25rem; }
+  @media (min-width: 560px) { .split { grid-template-columns: 1fr 1fr; } }
+  .split > div { min-width: 0; }
+
+  .pages { list-style: none; padding: 0; display: grid; gap: .55rem; }
+  @media (min-width: 560px) { .pages { grid-template-columns: 1fr 1fr; } }
+  .pages a {
+    display: block; padding: .7rem .95rem;
+    border: 1px solid var(--rule); border-radius: .85rem;
+    color: var(--ink); text-decoration: none; font-weight: 600; font-size: .92rem;
+  }
+  .pages a:hover { border-color: var(--sea); color: var(--sea); }
+  .pages small { display: block; font-weight: 400; color: var(--ink-soft); font-size: .78rem; }
+
+  figure { margin: 0; }
+  figure img {
+    width: 100%; max-width: 300px; display: block;
+    border-radius: 1rem; border: 1px solid var(--rule);
+  }
+  figcaption { color: var(--ink-soft); font-size: .85rem; margin-top: .6rem; }
+
+  .note {
+    border-left: 3px solid var(--sun);
+    padding-left: 1rem;
+    color: var(--ink-soft); font-size: .92rem;
+  }
+  footer { color: var(--ink-soft); font-size: .85rem; border-top: 1px solid var(--rule); padding-top: 1.25rem; }
+  a { color: var(--sea); }
+  a:focus-visible, .cta:focus-visible { outline: 2px solid var(--sea); outline-offset: 3px; }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Working preview</p>
+    <h1>Morning Catch</h1>
+    <p class="lede">
+      The fish pre-booking site, running live with the new policy pages and the
+      seller details pulled from config. Everything here is clickable — book a
+      fish and take it all the way to the receipt.
+    </p>
+    <p style="margin-top:1.4rem">
+      <a class="cta" href="index.html">
+        Open the shop
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+    </p>
+  </header>
+
+  <div class="card split">
+    <div>
+      <h2>What's real</h2>
+      <ul>
+        <li>The full basket, cut options and quantity steppers</li>
+        <li>The checkout sheet, slot picker and form validation</li>
+        <li>The receipt screen with its order ID</li>
+        <li>All five policy pages, filled from one config block</li>
+        <li>The footer's address, FSSAI number and WhatsApp button</li>
+      </ul>
+    </div>
+    <div>
+      <h2>What isn't</h2>
+      <ul>
+        <li><strong>Payment is simulated.</strong> No Razorpay, no money — the preview jumps straight to the receipt</li>
+        <li><strong>The fish are samples</strong> baked into the page, not a database</li>
+        <li><strong>The seller is invented</strong> — "Fernandes Fresh Fish" and that FSSAI number are placeholders for the real details</li>
+        <li><strong>No receipts are sent</strong>, by WhatsApp or email</li>
+      </ul>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2>The policy pages</h2>
+    <p class="muted" style="font-size:.92rem">
+      Razorpay will not activate a live account without these five. Each one reads
+      the seller's name, address and contact details from the same config block,
+      so correcting one detail fixes all of them.
+    </p>
+    <ul class="pages">
+      <li><a href="terms.html">Terms &amp; conditions<small>Weights, cutoff, what we're liable for</small></a></li>
+      <li><a href="privacy.html">Privacy policy<small>What's collected, who else sees it</small></a></li>
+      <li><a href="refund.html">Refunds &amp; cancellations<small>Free before cutoff, not after</small></a></li>
+      <li><a href="shipping.html">Delivery policy<small>Local and same-morning, not a courier</small></a></li>
+      <li><a href="contact.html">Contact us<small>Address, FSSAI, directions</small></a></li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>The seller's side</h2>
+    <p class="muted" style="font-size:.92rem">
+      The admin dashboard runs on PHP and a database, so it can't be hosted here.
+      This is it on a phone, with the new photo upload on each fish — the camera
+      button, the thumbnail once a photo is in, and the tick to remove one.
+    </p>
+    <figure>
+      <img src="admin-preview.png" alt="The admin Today's catch tab on a phone: each fish has price, landed and left quantities, a photo thumbnail and a file picker." loading="lazy">
+      <figcaption>
+        A 3000&times;2000 phone photo comes out the other side as a 1400px WebP
+        around 8&nbsp;KB. A PHP file renamed <code>.jpg</code> is refused.
+      </figcaption>
+    </figure>
+  </section>
+
+  <p class="note">
+    On the real site the shop runs on its own web address, takes live payments
+    through Razorpay, and the seller updates the catch from their phone each
+    morning. This preview is the same site with the payment step and the
+    database switched off, so anyone can click through it safely.
+  </p>
+
+  <footer>
+    A demonstration site. The fish, prices and shop details on it are examples.
+  </footer>
+
+</div>
