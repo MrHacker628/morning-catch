@@ -36,6 +36,22 @@
       pickup:   ['7:00 – 9:00 AM', '9:00 – 11:00 AM', '11:00 AM – 1:00 PM'],
     },
     THEME_COLOR: '#F2643D',           // Razorpay overlay accent
+
+    /* Seller name, contact details and licence numbers. The server sends
+       the real values from the `business` block of the config file, so
+       nobody has to edit index.html to rebrand the site. */
+    BUSINESS: {
+      SHOP_NAME: 'Morning Catch',
+      LEGAL_NAME: 'Morning Catch',
+      TAGLINE: 'Fresh off the boat, kept aside for you',
+      ADDRESS_LINES: [],
+      PHONE: '',
+      WHATSAPP_LINK: '',
+      EMAIL: '',
+      HOURS: '',
+      FSSAI: '',
+      GSTIN: '',
+    },
   };
 
   /* Sample catch, used only in preview mode (opening index.html locally). */
@@ -226,8 +242,71 @@
     };
   }
 
+  /**
+   * Write the seller's details into the page: brand line, footer address,
+   * phone, email, WhatsApp button and licence numbers. Anything the seller
+   * left blank in the config stays hidden instead of showing an empty row.
+   */
+  function applyBusiness() {
+    const b = CONFIG.BUSINESS || {};
+    const shop = b.SHOP_NAME || CONFIG.SHOP_NAME;
+
+    /** Set an element's text, or hide it when there's nothing to show. */
+    const fill = (sel, text, show = 'block') => {
+      const el = $(sel);
+      if (!el) return;
+      el.textContent = text || '';
+      el.classList.toggle('hidden', !text);
+      if (text) el.classList.add(show);
+    };
+
+    if (shop) {
+      document.title = `${shop} · Book today's fresh fish`;
+      $('#brandName').textContent = shop;
+      $('#footerName').textContent = shop;
+      $('#footerLegalName').textContent = b.LEGAL_NAME || shop;
+      $('#cartBtn').setAttribute('aria-label', `Open your basket`);
+      $('a[aria-label$="home"]')?.setAttribute('aria-label', `${shop} home`);
+    }
+    if (b.TAGLINE) $('#brandTagline').textContent = b.TAGLINE;
+
+    // Address — one line per line of the config's address
+    const addr = $('#footerAddress');
+    if (addr) {
+      const lines = b.ADDRESS_LINES || [];
+      addr.innerHTML = lines.map(esc).join('<br />');
+      addr.classList.toggle('hidden', lines.length === 0);
+    }
+
+    fill('#footerHours', b.HOURS);
+
+    const wa = $('#footerWhatsapp');
+    if (wa) {
+      if (b.WHATSAPP_LINK) { wa.href = b.WHATSAPP_LINK; wa.classList.remove('hidden'); wa.classList.add('inline-flex'); }
+      else wa.classList.add('hidden');
+    }
+
+    const phone = $('#footerPhone');
+    if (phone) {
+      if (b.PHONE) { phone.href = `tel:${b.PHONE.replace(/[^\d+]/g, '')}`; phone.textContent = b.PHONE; phone.classList.remove('hidden'); }
+      else phone.classList.add('hidden');
+    }
+
+    const email = $('#footerEmail');
+    if (email) {
+      if (b.EMAIL) { email.href = `mailto:${b.EMAIL}`; email.textContent = b.EMAIL; email.classList.remove('hidden'); }
+      else email.classList.add('hidden');
+    }
+
+    // FSSAI is legally required on an Indian food business site; GST is optional.
+    const licences = [b.FSSAI && `FSSAI registration no. ${b.FSSAI}`, b.GSTIN && `GSTIN ${b.GSTIN}`].filter(Boolean);
+    fill('#footerLicences', licences.join(' · '));
+  }
+
   function afterLoad() {
+    applyBusiness();
     $('#landedText').textContent = `Today's catch landed at ${CONFIG.LANDED_AT}`;
+    $('#footerLanded').textContent = CONFIG.LANDED_AT;
     restoreCart();
     updateCutoff();
     setInterval(updateCutoff, 30_000);
@@ -248,6 +327,8 @@
     const diff = cutoff - now;
 
     $('#cutoffLabel').textContent = `Bookings close at ${label}`;
+    const footerCutoff = $('#footerCutoff');
+    if (footerCutoff) footerCutoff.textContent = label;
 
     // The seller switched bookings off from /admin (or the server says it's past cutoff)
     if (!state.demo && CONFIG.BOOKING_OPEN === false) {
@@ -301,8 +382,12 @@
       const disabled = soldOut || !state.bookingOpen || available < p.min_qty;
       const unitWord = p.unit === 'kg' ? 'kg' : 'piece';
 
+      // A real photo fills the whole header area; without one we draw the fish.
+      // Absolute positioning keeps every card the same height whatever shape
+      // the seller's photo happens to be.
       const art = p.image_url
-        ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" class="h-full w-full object-cover" />`
+        ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async"
+                class="absolute inset-0 h-full w-full object-cover" />`
         : fishArt(p);
       const bg = ART_COLORS[(p.id - 1) % ART_COLORS.length].bg;
 

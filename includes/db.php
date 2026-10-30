@@ -7,14 +7,34 @@
 
    Why PDO with prepared statements? Every value goes in as a "?"
    placeholder, so customer input can never break or inject SQL.
+
+   db()          — the shop cannot work without the database, so this
+                   stops the request with a clear error if it is down.
+   db_optional() — returns null instead, for pages that should still
+                   open when MySQL is unreachable (the legal pages).
    ===================================================================== */
 
 declare(strict_types=1);
 
 function db(): PDO
 {
-    static $pdo = null;
+    $pdo = db_optional();
     if ($pdo instanceof PDO) return $pdo;
+
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Could not connect to the database. Please try again shortly.']);
+    exit;
+}
+
+/** The same connection, but null instead of a fatal error when it fails. */
+function db_optional(): ?PDO
+{
+    static $pdo    = null;
+    static $tried  = false;
+    if ($pdo instanceof PDO) return $pdo;
+    if ($tried) return null;                 // don't retry a dead connection every call
+    $tried = true;
 
     $options = [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,   // throw on any SQL error
@@ -41,10 +61,7 @@ function db(): PDO
         }
     } catch (PDOException $e) {
         log_msg('DB connection failed: ' . $e->getMessage());
-        http_response_code(500);
-        header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Could not connect to the database. Please try again shortly.']);
-        exit;
+        return null;
     }
 
     return $pdo;

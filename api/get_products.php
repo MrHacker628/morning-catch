@@ -48,5 +48,8 @@ json_out([
         'BOOKING_OPEN'        => $open,
         'CLOSED_REASON'       => $reason,
         'IGNORE_CUTOFF'       => (bool) cfg('shop.ignore_cutoff', false),
+
+        // Seller name, contact details and legal links for the footer
+        'BUSINESS'            => business_public(),
     ],
 ]);

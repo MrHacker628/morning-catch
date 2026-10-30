@@ -16,6 +16,7 @@
 declare(strict_types=1);
 require __DIR__ . '/../includes/bootstrap.php';
 require __DIR__ . '/../includes/orders.php';
+require __DIR__ . '/../includes/photos.php';
 
 /* ---------------------------------------------------------------------
    Session + security
@@ -41,6 +42,15 @@ function redirect(string $query = ''): void
 }
 
 function flash(string $msg): void { $_SESSION['flash'] = $msg; }
+
+/** The photo a fish currently has, so we can delete it when it is replaced. */
+function current_photo(int $id): ?string
+{
+    $st = db()->prepare('SELECT image_url FROM products WHERE id = ?');
+    $st->execute([$id]);
+    $url = $st->fetchColumn();
+    return $url === false || $url === null ? null : (string) $url;
+}
 
 /* ---------------------------------------------------------------------
    POST actions
@@ -116,7 +126,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (int) $id,
                 ]);
             }
-            flash("Today's catch saved.");
+
+            // Photos: one optional file per fish, plus a "remove" tick
+            $setPhoto = db()->prepare('UPDATE products SET image_url = ? WHERE id = ?');
+            $photoErrors = [];
+            foreach ((array) ($_POST['p'] ?? []) as $id => $p) {
+                $id   = (int) $id;
+                $file = $_FILES['photo_' . $id] ?? null;
+
+                if (!empty($p['remove_photo'])) {
+                    photo_delete(current_photo($id));
+                    $setPhoto->execute([null, $id]);
+                    continue;
+                }
+                if (!photo_was_chosen($file)) continue;
+
+                [$url, $error] = photo_store($file, (string) ($p['name'] ?? 'fish'));
+                if ($url === null) {
+                    $photoErrors[] = trim((string) ($p['name'] ?? 'A fish')) . ': ' . $error;
+                    continue;
+                }
+                photo_delete(current_photo($id));      // the one it replaces
+                $setPhoto->execute([$url, $id]);
+            }
+
+            flash($photoErrors ? "Catch saved, but: " . implode(' ', $photoErrors) : "Today's catch saved.");
             break;
 
         case 'add_product':
@@ -141,6 +175,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     trim((string) ($_POST['cut_options'] ?? '')) ?: 'Whole,Cleaned',
                     99,
                 ]);
+                $newId = (int) db()->lastInsertId();
+                $file   = $_FILES['photo'] ?? null;
+                if ($newId > 0 && photo_was_chosen($file)) {
+                    [$url, $error] = photo_store($file, $name);
+                    if ($url !== null) {
+                        db()->prepare('UPDATE products SET image_url = ? WHERE id = ?')->execute([$url, $newId]);
+                    } else {
+                        flash("$name added, but the photo did not work: $error");
+                        break;
+                    }
+                }
                 flash("$name added.");
             } else {
                 flash('Please give the fish a name and a price.');
@@ -362,8 +407,9 @@ if ($isAdmin) {
       <!-- ============================ TODAY'S CATCH ============================ -->
       <h1 class="font-display text-3xl font-bold">Today's catch</h1>
       <p class="text-sm text-ink-soft">Update prices and stock each morning. "Left" goes down by itself as people pay.</p>
+      <p class="mt-1 text-sm text-ink-soft">A real photo sells far more than a drawing — add one for each fish when you have a minute.</p>
 
-      <form method="post" class="mt-5 space-y-3">
+      <form method="post" enctype="multipart/form-data" class="mt-5 space-y-3">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>" /><input type="hidden" name="action" value="save_products" /><input type="hidden" name="tab" value="catch" />
         <?php foreach ($products as $p): $id = (int) $p['id']; $u = $p['unit'] === 'kg' ? 'kg' : 'pcs'; ?>
           <fieldset class="rounded-3xl bg-white p-4 shadow-card <?= $p['is_available'] ? '' : 'opacity-60' ?>">
@@ -378,6 +424,26 @@ if ($isAdmin) {
               <div><label class="lbl" for="ls<?= $id ?>">Landed (<?= $u ?>)</label><input class="field" id="ls<?= $id ?>" name="p[<?= $id ?>][initial_stock]" type="number" step="0.5" min="0" inputmode="decimal" value="<?= h((string) (float) $p['initial_stock']) ?>" /></div>
               <div><label class="lbl" for="st<?= $id ?>">Left (<?= $u ?>)</label><input class="field" id="st<?= $id ?>" name="p[<?= $id ?>][stock_qty]" type="number" step="0.5" min="0" inputmode="decimal" value="<?= h((string) (float) $p['stock_qty']) ?>" /></div>
             </div>
+            <!-- Photo: what the customer sees on the shop page -->
+            <div class="mt-3 flex items-center gap-3 rounded-2xl bg-sand p-3">
+              <?php if (!empty($p['image_url'])): ?>
+                <img src="<?= h('../' . $p['image_url']) ?>" alt="" class="h-16 w-16 shrink-0 rounded-xl object-cover" />
+              <?php else: ?>
+                <span class="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-sand-dark text-ink-soft" aria-hidden="true">
+                  <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-5 5-2-2-3 3"/></svg>
+                </span>
+              <?php endif; ?>
+              <div class="min-w-0 flex-1">
+                <label class="lbl" for="ph<?= $id ?>"><?= empty($p['image_url']) ? 'Add a photo' : 'Replace the photo' ?></label>
+                <input class="field !py-2 text-sm" id="ph<?= $id ?>" name="photo_<?= $id ?>" type="file" accept="image/*" capture="environment" />
+                <?php if (!empty($p['image_url'])): ?>
+                  <label class="mt-1.5 flex items-center gap-2 text-xs font-medium text-ink-soft">
+                    <input type="checkbox" name="p[<?= $id ?>][remove_photo]" value="1" class="h-4 w-4 rounded text-coral" /> Remove this photo
+                  </label>
+                <?php endif; ?>
+              </div>
+            </div>
+
             <details class="mt-3">
               <summary class="cursor-pointer text-sm font-semibold text-sea">More details</summary>
               <div class="mt-3 grid gap-2 sm:grid-cols-2">
@@ -394,7 +460,7 @@ if ($isAdmin) {
         <button class="sticky bottom-3 w-full rounded-2xl bg-coral py-4 text-base font-bold text-white shadow-card hover:bg-coral-dark">Save today's catch</button>
       </form>
 
-      <form method="post" class="mt-8 rounded-3xl bg-white p-4 shadow-card">
+      <form method="post" enctype="multipart/form-data" class="mt-8 rounded-3xl bg-white p-4 shadow-card">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>" /><input type="hidden" name="action" value="add_product" /><input type="hidden" name="tab" value="catch" />
         <h2 class="font-display text-xl font-bold">Add a new fish</h2>
         <div class="mt-3 grid gap-2 sm:grid-cols-2">
@@ -408,6 +474,11 @@ if ($isAdmin) {
           <div><label class="lbl" for="n_stock">Landed today</label><input class="field" id="n_stock" name="stock_qty" type="number" step="0.5" min="0" inputmode="decimal" /></div>
           <div class="sm:col-span-2"><label class="lbl" for="n_desc">Description</label><input class="field" id="n_desc" name="description" placeholder="Firm white flesh, great for curry" /></div>
           <div class="sm:col-span-2"><label class="lbl" for="n_cuts">Cut options</label><input class="field" id="n_cuts" name="cut_options" value="Whole,Cleaned,Curry cut,Fry cut" /></div>
+          <div class="sm:col-span-2">
+            <label class="lbl" for="n_photo">Photo <span class="font-normal text-ink-soft">(optional — you can add it later)</span></label>
+            <input class="field !py-2" id="n_photo" name="photo" type="file" accept="image/*" capture="environment" />
+            <p class="mt-1 text-xs text-ink-soft">Shoot it on your phone in daylight. We shrink it for you.</p>
+          </div>
         </div>
         <button class="mt-4 w-full rounded-2xl bg-ink py-3 font-semibold text-sand hover:bg-sea">Add fish</button>
       </form>

@@ -55,6 +55,44 @@ return [
     ],
 
     /* -----------------------------------------------------------------
+       BUSINESS IDENTITY — who the seller is, legally and on paper.
+
+       These appear in the footer, on the five legal pages and on
+       receipts. Razorpay checks the legal name, address, contact details
+       and the policy pages during account activation, so fill all of
+       this in with the seller's REAL details before switching to live
+       keys. An empty value simply hides that line on the site.
+       ----------------------------------------------------------------- */
+    'business' => [
+        // Name on the Razorpay account / shop licence. Falls back to shop.name.
+        'legal_name' => 'Morning Catch Fish Supply',
+        'owner_name' => 'Seller full name',
+        'tagline'    => 'Fresh off the boat, kept aside for you',
+
+        // Full postal address, one line per line break. Required by Razorpay.
+        'address'    => "Stall 12, Municipal Fish Market\nPanaji, Goa 403001\nIndia",
+
+        'phone'      => '',          // '+91 98765 43210' — shown on Contact us
+        'whatsapp'   => '',          // '919876543210' (with 91, no +) — the "Chat on WhatsApp" button
+        'email'      => '',          // 'orders@yourdomain.com'
+        'hours'      => 'Every day, 5:30 AM – 12:00 PM',
+
+        // FSSAI registration number — legally required on a food business
+        // website in India. Get it at foscos.fssai.gov.in (Basic
+        // Registration is enough for a small seller).
+        'fssai'      => '',          // e.g. '11523998000123'
+
+        // Leave empty if the seller is not GST registered (most small
+        // fish sellers are not — fresh fish is GST-exempt anyway).
+        'gstin'      => '',
+
+        // Where the seller delivers, and how long it takes. Used on the
+        // shipping/delivery policy page.
+        'delivery_areas' => 'Panaji, Taleigao, Dona Paula and Porvorim',
+        'delivery_note'  => 'Everything is delivered the same morning, in the slot chosen at checkout.',
+    ],
+
+    /* -----------------------------------------------------------------
        DATABASE — hPanel → Databases → MySQL Databases
        Hostinger names look like u123456789_morningcatch
        ----------------------------------------------------------------- */

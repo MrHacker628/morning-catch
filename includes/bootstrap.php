@@ -122,6 +122,14 @@ function qty_label($qty, string $unit): string
     return rtrim(rtrim(number_format($qty, 2, '.', ''), '0'), '.') . ' kg';
 }
 
+/** '10:30' → '10:30 AM'. Falls back to the input if it isn't HH:MM. */
+function pretty_time(string $hhmm): string
+{
+    if (!preg_match('/^(\d{1,2}):(\d{2})$/', trim($hhmm), $m)) return $hhmm;
+    $ts = mktime((int) $m[1], (int) $m[2], 0, 1, 1, 2000);
+    return $ts === false ? $hhmm : date('g:i A', $ts);
+}
+
 /** Current time as a MySQL DATETIME string, in the shop's timezone */
 function now_sql(): string
 {
@@ -135,3 +143,4 @@ function h(?string $s): string
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/business.php';

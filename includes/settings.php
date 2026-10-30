@@ -21,7 +21,9 @@ function shop_settings(): array
     ];
 
     try {
-        foreach (db()->query('SELECT setting_key, setting_value FROM settings') as $row) {
+        $pdo = db_optional();
+        if ($pdo === null) return $settings;      // database down — config defaults are fine
+        foreach ($pdo->query('SELECT setting_key, setting_value FROM settings') as $row) {
             $k = $row['setting_key'];
             if (!array_key_exists($k, $settings)) continue;
             $v = $row['setting_value'];

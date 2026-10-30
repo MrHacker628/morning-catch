@@ -38,10 +38,17 @@ The keys never go on GitHub. They live in one file outside `public_html`.
 3. Open `public_html/includes/config.sample.php`, copy everything, paste it into your new file.
 4. Fill in for now:
    - `shop` → `name`, `site_url`, `pickup_address`
+   - `business` → the seller's **real** legal name, address, phone, WhatsApp, email, opening hours and **FSSAI number**. These fill the footer, the five policy pages and the contact page — you never edit any HTML to rebrand the site. Razorpay checks them during activation, so do not leave them as the samples.
    - `db` → the database name, user and password from step 3
    - `admin` → `password` (pick a long one)
    - `seller` → the seller's WhatsApp number (`91` + 10 digits) and email
 5. Leave `mail.transport` = `'log'` and `whatsapp.provider` = `'log'` for the first test.
+
+Anything in `business` you leave blank is simply left off the page — so an unregistered seller with no GST number gets a footer with no GST line, not an empty one.
+
+### Photo folder permissions
+
+The seller uploads fish photos from `/admin`, so `public_html/assets/img/products` has to be writable. In **File Manager**, right-click it → **Permissions** → set **755**. The folder ships with its own `.htaccess` that stops anything in it from ever being executed — leave that file alone.
 
 Open `https://yourdomain.com/api/get_products.php`. You should see the fish list as text (JSON). If it says "Shop is not configured yet", the file name or folder is wrong.
 
@@ -117,6 +124,20 @@ Fill in `twilio` → `account_sid`, `auth_token`, `from` and set `'provider' => 
 
 ## 8. Go live
 
+**Before you apply for activation**, open these five pages and read them with the seller. Razorpay will not activate a live account without them, and they must describe how the seller actually works:
+
+| Page | What Razorpay calls it |
+|---|---|
+| `https://yourdomain.com/terms.php` | Terms & Conditions |
+| `https://yourdomain.com/privacy.php` | Privacy Policy |
+| `https://yourdomain.com/refund.php` | Refund & Cancellation Policy |
+| `https://yourdomain.com/shipping.php` | Shipping / Delivery Policy |
+| `https://yourdomain.com/contact.php` | Contact Us |
+
+They are filled from the `business` block of your config file, so correcting the seller's address or FSSAI number fixes all five at once. The text itself is a sensible starting point for a small fish business — it is **not legal advice**, so read it through and change anything that does not match reality (delivery area, complaint window, refund timings).
+
+The seller also needs an **FSSAI registration** to sell food in India. Basic Registration is enough for a small stall and is applied for at [foscos.fssai.gov.in](https://foscos.fssai.gov.in). Put the number in `business.fssai` — it then shows in the footer and on the contact page, which is where a customer (and an inspector) expects it.
+
 1. Razorpay: finish **KYC** / account activation.
 2. Switch the dashboard to **Live Mode** → generate **Live** keys (`rzp_live_…`) → put them in the config.
 3. Add the webhook again in **Live Mode** (test and live webhooks are separate).
@@ -130,6 +151,7 @@ Fill in `twilio` → `account_sid`, `auth_token`, `from` and set `'provider' => 
 Open **`https://yourdomain.com/admin`** on the phone and log in.
 
 - **Today's catch:** set each fish's price, "Landed" and "Left" quantity. Untick "On sale" for anything not caught today. Tap **Save**.
+- **Photos:** on the same tab, each fish has an **Add a photo** button that opens the phone camera. Shoot the fish on the ice in daylight — the site shrinks and converts it for you, so a 5 MB phone photo becomes a ~40 KB image that loads fast on mobile data. Tick **Remove this photo** to go back to the drawing.
 - **Settings:** update "Catch landed at". On days with no catch, switch **Taking bookings today** off.
 - **Orders:** the packing list. The top box shows the total of each fish to keep aside. Change each order to *Kept aside* → *Out for delivery* → *Done*. Use **Resend receipt** if a buyer says they didn't get it.
 

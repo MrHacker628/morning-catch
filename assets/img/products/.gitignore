@@ -1,0 +1,5 @@
+# The seller's own photos stay on their server, not in this repo.
+# The folder and its .htaccess are tracked so a fresh deploy has both.
+*
+!.gitignore
+!.htaccess

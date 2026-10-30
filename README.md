@@ -17,7 +17,14 @@ Opening `index.html` without the PHP backend runs **preview mode** (sample fish,
 
 ```
 index.html               shop page
+terms.php                terms & conditions          ┐
+privacy.php              privacy policy              │ Razorpay will not
+refund.php               refunds & cancellations     │ activate a live
+shipping.php             delivery policy             │ account without
+contact.php              contact us                  ┘ these five
 assets/js/script.js      basket, checkout, Razorpay
+assets/js/tailwind-config.js  one colour palette for every page
+assets/img/products/     fish photos the seller uploads from /admin
 api/                     JSON endpoints called by the browser and Razorpay
 admin/                   seller dashboard (orders, today's catch, settings)
 includes/                shared PHP (blocked from the browser)
@@ -25,6 +32,9 @@ includes/                shared PHP (blocked from the browser)
   bootstrap.php          loads config, helpers
   db.php                 MySQL connection
   settings.php           shop settings + booking cutoff
+  business.php           the seller's name, address, FSSAI, contact details
+  page.php               header/footer shared by the five policy pages
+  photos.php             resizes and stores uploaded fish photos
   razorpay.php           Razorpay API via cURL (no Composer needed)
   orders.php             mark paid, reduce stock, notify
   send_notifications.php HTML email (PHPMailer) + WhatsApp (UltraMsg / Meta / Twilio)
@@ -32,4 +42,18 @@ includes/                shared PHP (blocked from the browser)
 database/schema.sql      tables + sample fish
 ```
 
+## Setting it up for a seller
+
+Everything that identifies the shop — name, tagline, address, phone, WhatsApp, email, opening
+hours, FSSAI and GST numbers, delivery area — lives in the `business` block of the config file.
+The footer, the five policy pages and the contact page all read from there, so **you never edit
+HTML to rebrand the site**. Anything left blank is simply left off the page.
+
 Secret keys live in `morning-catch-config.php` **outside** `public_html`, never in this repo.
+
+## Photos
+
+The seller adds a photo per fish from `/admin` → *Today's catch*. Uploads are checked, turned the
+right way up from the phone's EXIF data, scaled to 1400px and re-encoded as WebP, then stored in
+`assets/img/products/` under a random name. That folder can't execute anything, and the photos
+are not committed to this repo — they stay on the seller's own server.
