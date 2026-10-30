@@ -146,6 +146,73 @@ The seller also needs an **FSSAI registration** to sell food in India. Basic Reg
 
 ---
 
+## Showing it to a client before they pay for hosting
+
+A client wants to see the seller dashboard and a real payment screen, and neither
+runs on static hosting. Put a throwaway copy on a free PHP host for the pitch, then
+move it to the seller's own hosting once they say yes.
+
+### The one thing that decides whether a free host will do
+
+The shop calls `api.razorpay.com` from the server. Many free hosts block outbound
+connections, and when they do, **no payment can ever work there** — it is not
+something you can configure around. Everything else (PHP version, extensions,
+permissions) is usually fixable; this one is not.
+
+So check it before you spend an evening uploading. That is what `setup-check.php`
+is for.
+
+### Steps
+
+1. **Sign up** for a free host that runs PHP 8 and MySQL. InfinityFree, Byet.host
+   and TinkerHost are the usual ones. You get a free subdomain, which is fine for a
+   demo.
+2. **Turn on the free SSL certificate** for that subdomain. Razorpay's checkout
+   will not load over plain HTTP.
+3. **Create a MySQL database** and note the database name, user, password and
+   **hostname**. On free hosts the hostname is almost never `localhost` — copy the
+   exact one the panel shows, e.g. `sql123.epizy.com`.
+4. **Import `database/schema.sql`** through phpMyAdmin → Import.
+5. **Upload the site** into `htdocs` (or `public_html`). Turn on **"show hidden
+   files"** in the file manager first — the `.htaccess` files are what protect
+   `includes/` and the photo folder, and most file managers skip them silently.
+6. **Create the config file.** Free hosts rarely let you write above the web root,
+   so put it at `includes/config.php` instead. The `.htaccess` in that folder
+   blocks it from the browser. Fill in `db`, `admin.password`, `business` and your
+   Razorpay **test** keys.
+7. **Set `assets/img/products` to 755** so photo uploads can be saved.
+8. **Open `https://yoursubdomain/setup-check.php`** and type your admin password.
+
+### Reading the result
+
+The page checks the PHP version, every extension the shop needs, the database and
+its four tables, the photo folder, your shop details, the five policy pages, and —
+the important one — it makes a real read-only call to Razorpay with your keys.
+
+- **"Razorpay answered"** — outbound works and your keys are good. This host will do.
+- **"This host cannot look up api.razorpay.com"** or **"Connection to Razorpay timed
+  out"** — the host blocks outbound connections. Move to a different host; nothing
+  you change here will fix it.
+- **"Razorpay refused the keys"** — the host is fine, your keys are wrong. Copy them
+  from the dashboard again.
+
+Fix the red rows, re-run it, then place one test order end to end.
+
+**Delete `setup-check.php` once you are done.** It is a setup tool, and leaving it
+up tells strangers what your server runs.
+
+### What to expect from free hosting
+
+- Free plans suspend accounts during traffic spikes. Fine for one client looking at
+  it; not somewhere to take real orders.
+- Email sending is usually blocked or heavily limited, so leave
+  `mail.transport` as `'log'` and show the receipt screen rather than a delivered
+  email.
+- Treat it as a demo you throw away. The real install goes on the seller's own
+  hosting, following the steps above this section.
+
+---
+
 ## The seller's daily routine
 
 Open **`https://yourdomain.com/admin`** on the phone and log in.

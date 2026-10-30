@@ -17,6 +17,7 @@ Opening `index.html` without the PHP backend runs **preview mode** (sample fish,
 
 ```
 index.html               shop page
+setup-check.php          one-page host check (delete once live)
 terms.php                terms & conditions          ┐
 privacy.php              privacy policy              │ Razorpay will not
 refund.php               refunds & cancellations     │ activate a live
