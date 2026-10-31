@@ -192,6 +192,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             break;
 
+        case 'delete_product':
+            $id   = (int) ($_POST['product_id'] ?? 0);
+            $name = trim((string) ($_POST['product_name'] ?? 'That fish'));
+
+            // A fish that has been ordered must stay: order_items points at it,
+            // and deleting it would tear a hole in the seller's past receipts.
+            $used = db()->prepare('SELECT COUNT(*) FROM order_items WHERE product_id = ?');
+            $used->execute([$id]);
+
+            if ($id <= 0) {
+                flash('Could not work out which fish to remove.');
+            } elseif ((int) $used->fetchColumn() > 0) {
+                flash("$name has been ordered before, so it cannot be deleted — past receipts would lose it. Untick \"On sale\" to take it off the shop instead.");
+            } else {
+                photo_delete(current_photo($id));
+                db()->prepare('DELETE FROM products WHERE id = ?')->execute([$id]);
+                flash("$name removed.");
+            }
+            break;
+
         case 'save_settings':
             save_setting('landed_at', trim((string) ($_POST['landed_at'] ?? '')) ?: '5:45 AM');
             $cutoff = (string) ($_POST['cutoff'] ?? '10:30');
@@ -454,11 +474,29 @@ if ($isAdmin) {
                 <div><label class="lbl" for="bd<?= $id ?>">Badge (e.g. Just landed)</label><input class="field" id="bd<?= $id ?>" name="p[<?= $id ?>][badge]" value="<?= h($p['badge']) ?>" /></div>
                 <div><label class="lbl" for="so<?= $id ?>">Position (lower = first)</label><input class="field" id="so<?= $id ?>" name="p[<?= $id ?>][sort_order]" type="number" value="<?= (int) $p['sort_order'] ?>" /></div>
               </div>
+              <div class="mt-4 border-t border-ink/10 pt-3">
+                <button type="submit" form="del<?= $id ?>"
+                        class="text-sm font-semibold text-coral-dark underline hover:no-underline"
+                        onclick="return confirm('Remove <?= h(addslashes($p['name'])) ?> from the shop for good? To just take it off sale for today, untick On sale instead.')">
+                  Remove this fish permanently
+                </button>
+                <p class="mt-1 text-xs text-ink-soft">Only possible if nobody has ordered it. To hide it for today, untick "On sale".</p>
+              </div>
             </details>
           </fieldset>
         <?php endforeach; ?>
         <button class="sticky bottom-3 w-full rounded-2xl bg-coral py-4 text-base font-bold text-white shadow-card hover:bg-coral-dark">Save today's catch</button>
       </form>
+
+      <?php foreach ($products as $p): ?>
+        <form method="post" id="del<?= (int) $p['id'] ?>" class="hidden">
+          <input type="hidden" name="csrf" value="<?= h($csrf) ?>" />
+          <input type="hidden" name="action" value="delete_product" />
+          <input type="hidden" name="tab" value="catch" />
+          <input type="hidden" name="product_id" value="<?= (int) $p['id'] ?>" />
+          <input type="hidden" name="product_name" value="<?= h($p['name']) ?>" />
+        </form>
+      <?php endforeach; ?>
 
       <form method="post" enctype="multipart/form-data" class="mt-8 rounded-3xl bg-white p-4 shadow-card">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>" /><input type="hidden" name="action" value="add_product" /><input type="hidden" name="tab" value="catch" />
