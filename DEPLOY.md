@@ -13,6 +13,55 @@ You need a Hostinger plan that has **PHP 8.1 or newer** and **MySQL** (Premium o
 
 ## 2. Connect GitHub (auto-deploy)
 
+Two ways, depending on the host. Set one up once and you never upload a file by
+hand again — which matters the moment you are looking after more than one shop.
+
+### A. The host's own git support (Hostinger and most cPanel hosts)
+
+hPanel → **Website** → **Advanced** → **GIT**. Add the repository URL, the
+branch, and `public_html` as the directory. Hostinger then shows a **webhook
+URL**: paste that into GitHub → the repo → **Settings** → **Webhooks** → *Add
+webhook*, content type `application/json`. From then on every push deploys
+itself.
+
+First time only: the target directory has to be empty before it will clone.
+
+### B. GitHub Actions over FTP (works on any host, including free ones)
+
+Free hosts have no git. `.github/workflows/deploy.yml` in this repo uploads over
+FTP instead. In GitHub → **Settings** → **Secrets and variables** → **Actions**,
+add four repository secrets:
+
+| Secret | Example |
+|---|---|
+| `FTP_SERVER` | `ftpupload.net` |
+| `FTP_USERNAME` | `if0_43314338` |
+| `FTP_PASSWORD` | the FTP password |
+| `FTP_DIR` | `/htdocs/` |
+
+Push to `main` and it deploys. It checks every PHP file parses first and refuses
+to upload broken code.
+
+### What auto-deploy must never overwrite
+
+- **`includes/config.php`** — holds the database and admin passwords, is not in
+  the repo, and is excluded from the FTP deploy as well.
+- **`assets/img/products/`** — the seller's own fish photos. Same: not in the
+  repo, excluded anyway.
+
+Both would take the shop down or lose the seller's work, so they are kept out
+twice over rather than once.
+
+### One repo, several sellers
+
+Each seller gets their own hosting, their own database and their own
+`config.php`, all from this one repository. Using host git, point each site at
+the same repo. Using Actions, each seller's site needs its own FTP secrets —
+so give each their own fork, or move the credentials into a
+[GitHub Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
+per seller and add one job per environment.
+
+
 1. hPanel → **Websites** → **Dashboard** → **Advanced** → **Git**.
 2. **Connect with GitHub** → allow access to `MrHacker628/morning-catch`.
 3. Branch `main`, folder `public_html` → **Deploy**. Keep **Auto-deployment** on.

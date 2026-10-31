@@ -1,0 +1,85 @@
+# =====================================================================
+#  Deploy the shop to a seller's hosting over FTP, on every push.
+#
+#  Why FTP and not the host's own git support: Hostinger has git built
+#  in and that is the better option where it exists (see DEPLOY.md), but
+#  free and budget hosts usually do not. FTP works everywhere.
+#
+#  SET THIS UP ONCE per site, in the repo's
+#  Settings -> Secrets and variables -> Actions:
+#
+#    FTP_SERVER     ftpupload.net        (the host's FTP hostname)
+#    FTP_USERNAME   if0_43314338
+#    FTP_PASSWORD   the FTP password
+#    FTP_DIR        /htdocs/             (trailing slash matters)
+#
+#  WHAT IT WILL NEVER TOUCH
+#  config.php holds the seller's database and admin passwords and is not
+#  in this repo at all. Their uploaded fish photos are not either. Both
+#  are excluded below as well, belt and braces: a deploy that wiped
+#  either would take the shop down and lose the seller's work.
+# =====================================================================
+
+name: Deploy to hosting
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:          # lets you deploy by hand from the Actions tab
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false   # never interrupt a half-finished upload
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Fail early if the FTP details are missing
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          missing=""
+          [ -z "$FTP_SERVER" ]   && missing="$missing FTP_SERVER"
+          [ -z "$FTP_USERNAME" ] && missing="$missing FTP_USERNAME"
+          [ -z "$FTP_PASSWORD" ] && missing="$missing FTP_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "Missing repository secrets:$missing"
+            echo "Add them under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+      - name: Check the PHP parses before it goes anywhere near the shop
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq php-cli
+          fail=0
+          while IFS= read -r f; do
+            php -l "$f" > /dev/null || { echo "Syntax error in $f"; fail=1; }
+          done < <(find . -name '*.php' -not -path './includes/lib/*' -not -path './.git/*')
+          [ "$fail" -eq 0 ] || { echo "Not deploying broken PHP."; exit 1; }
+
+      - name: Upload changed files
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_DIR || '/htdocs/' }}
+          protocol: ftp
+          # Only what changed since the last deploy goes up.
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            includes/config.php
+            assets/img/products/**
+            **/*.log
+            .github/**
+            README.md
+            DEPLOY.md
+            README-DEMO.md
