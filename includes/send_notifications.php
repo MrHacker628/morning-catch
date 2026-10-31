@@ -74,8 +74,10 @@ function send_mail(string $toEmail, string $toName, string $subject, string $htm
     $transport = cfg('mail.transport', 'smtp');
 
     if ($transport === 'log') {
-        log_msg("EMAIL (log mode) to {$toEmail}: {$subject}\n{$text}");
-        return true;
+        // Write it out, but report NOT sent: nothing reached the customer, and
+        // the success screen must not tell them a receipt is on its way.
+        log_msg("EMAIL (log mode, NOT sent) to {$toEmail}: {$subject}\n{$text}");
+        return false;
     }
 
     $mail = new PHPMailer(true);   // true = throw exceptions on errors
@@ -254,8 +256,9 @@ function send_whatsapp(string $to, string $text, ?array $templateParams = null):
             return false;
 
         case 'log':
-            log_msg("WHATSAPP (log mode) to +{$to}:\n{$text}");
-            return true;
+            // As above: logged for inspection, but reported as not delivered.
+            log_msg("WHATSAPP (log mode, NOT sent) to +{$to}:\n{$text}");
+            return false;
 
         /* ---------- UltraMsg: https://docs.ultramsg.com ---------- */
         case 'ultramsg':
