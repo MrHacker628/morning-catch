@@ -207,6 +207,14 @@
           <div><p class="text-[13px] font-semibold sm:text-sm">We keep it aside</p><p class="hidden text-xs text-ink-soft sm:block">Receipt on WhatsApp</p></div>
         </li>
       </ol>
+
+      <!-- The delivery offer, stated before anyone fills a basket rather
+           than buried in the checkout sheet. Filled by script.js from the
+           seller's own settings, and hidden if free delivery is switched off. -->
+      <p id="deliveryOffer" class="mx-auto mt-3 hidden max-w-max items-center gap-2 rounded-full bg-sea-light px-4 py-2 text-center text-sm font-semibold text-sea">
+        <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="17" r="1.6"/><circle cx="17.5" cy="17" r="1.6"/></svg>
+        <span id="deliveryOfferText"></span>
+      </p>
     </section>
 
     <!-- ===============================================================
@@ -307,6 +315,7 @@
       <span>
         <span id="cartBarItems" class="block text-xs font-medium text-white/80">0 items</span>
         <span id="cartBarTotal" class="block text-lg font-bold">₹0</span>
+        <span id="cartBarNudge" class="mt-0.5 hidden text-xs font-medium text-sun"></span>
       </span>
       <span class="flex items-center gap-2 font-semibold">
         Review &amp; pay

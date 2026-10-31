@@ -332,8 +332,22 @@
     fill('#footerLicences', licences.join(' · '));
   }
 
+  /** "Free delivery over ₹1,000" — said up front, not only at checkout. */
+  function renderDeliveryOffer() {
+    const el = $('#deliveryOffer');
+    if (!el) return;
+    const above = +CONFIG.FREE_DELIVERY_ABOVE || 0;
+    if (above <= 0) { el.classList.add('hidden'); return; }
+
+    $('#deliveryOfferText').textContent =
+      `Free delivery over ${money(above)} · ${money(CONFIG.DELIVERY_FEE)} below that, or collect free`;
+    el.classList.remove('hidden');
+    el.classList.add('inline-flex');
+  }
+
   function afterLoad() {
     applyBusiness();
+    renderDeliveryOffer();
     $('#landedText').textContent = `Today's catch landed at ${CONFIG.LANDED_AT}`;
     $('#footerLanded').textContent = CONFIG.LANDED_AT;
     restoreCart();
@@ -575,6 +589,24 @@
     $('#cartBar').classList.toggle('translate-y-full', count === 0);
     $('#cartBarItems').textContent = `${count} ${count === 1 ? 'item' : 'items'} in basket`;
     $('#cartBarTotal').textContent = money(subtotal);
+
+    // How far off free delivery they are, on the bar itself — the moment
+    // another half kilo is an easy decision.
+    const nudge = $('#cartBarNudge');
+    if (nudge) {
+      const away = round2((+CONFIG.FREE_DELIVERY_ABOVE || 0) - subtotal);
+      const worth = state.fulfilment === 'delivery' && !state.societyId
+        && CONFIG.FREE_DELIVERY_ABOVE > 0 && subtotal > 0;
+      if (worth && away > 0) {
+        nudge.textContent = `${money(away)} more for free delivery`;
+        nudge.classList.remove('hidden'); nudge.classList.add('block');
+      } else if (worth) {
+        nudge.textContent = 'Free delivery unlocked';
+        nudge.classList.remove('hidden'); nudge.classList.add('block');
+      } else {
+        nudge.classList.add('hidden');
+      }
+    }
 
     // Sheet list
     $('#cartEmpty').classList.toggle('hidden', count > 0);
