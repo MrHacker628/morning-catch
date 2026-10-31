@@ -470,7 +470,11 @@ if ($isAdmin) {
                 <div><label class="lbl" for="nm<?= $id ?>">Name</label><input class="field" id="nm<?= $id ?>" name="p[<?= $id ?>][name]" value="<?= h($p['name']) ?>" /></div>
                 <div><label class="lbl" for="ln<?= $id ?>">Local name</label><input class="field" id="ln<?= $id ?>" name="p[<?= $id ?>][local_name]" value="<?= h($p['local_name']) ?>" /></div>
                 <div class="sm:col-span-2"><label class="lbl" for="ds<?= $id ?>">Description</label><input class="field" id="ds<?= $id ?>" name="p[<?= $id ?>][description]" value="<?= h($p['description']) ?>" /></div>
-                <div class="sm:col-span-2"><label class="lbl" for="ct<?= $id ?>">Cut options (comma separated)</label><input class="field" id="ct<?= $id ?>" name="p[<?= $id ?>][cut_options]" value="<?= h($p['cut_options']) ?>" /></div>
+                <div class="sm:col-span-2">
+                  <label class="lbl" for="ct<?= $id ?>">Cut options (comma separated)</label>
+                  <input class="field" id="ct<?= $id ?>" name="p[<?= $id ?>][cut_options]" value="<?= h($p['cut_options']) ?>" />
+                  <p class="mt-1 text-xs text-ink-soft">Charge for the work with a <strong>+</strong>, per <?= $p['unit'] === 'piece' ? 'piece' : 'kg' ?>: <code>Whole,Cleaned+50</code> means whole is free and cleaning adds ₹50 per <?= $p['unit'] === 'piece' ? 'piece' : 'kg' ?>.</p>
+                </div>
                 <div><label class="lbl" for="bd<?= $id ?>">Badge (e.g. Just landed)</label><input class="field" id="bd<?= $id ?>" name="p[<?= $id ?>][badge]" value="<?= h($p['badge']) ?>" /></div>
                 <div><label class="lbl" for="so<?= $id ?>">Position (lower = first)</label><input class="field" id="so<?= $id ?>" name="p[<?= $id ?>][sort_order]" type="number" value="<?= (int) $p['sort_order'] ?>" /></div>
               </div>
@@ -511,7 +515,11 @@ if ($isAdmin) {
           <div><label class="lbl" for="n_price">Price ₹</label><input class="field" id="n_price" name="price" type="number" step="0.01" min="1" inputmode="decimal" required /></div>
           <div><label class="lbl" for="n_stock">Landed today</label><input class="field" id="n_stock" name="stock_qty" type="number" step="0.5" min="0" inputmode="decimal" /></div>
           <div class="sm:col-span-2"><label class="lbl" for="n_desc">Description</label><input class="field" id="n_desc" name="description" placeholder="Firm white flesh, great for curry" /></div>
-          <div class="sm:col-span-2"><label class="lbl" for="n_cuts">Cut options</label><input class="field" id="n_cuts" name="cut_options" value="Whole,Cleaned,Curry cut,Fry cut" /></div>
+          <div class="sm:col-span-2">
+            <label class="lbl" for="n_cuts">Cut options</label>
+            <input class="field" id="n_cuts" name="cut_options" value="Whole,Cleaned+50,Curry cut+50,Fry cut+50" />
+            <p class="mt-1 text-xs text-ink-soft">Add <strong>+</strong> and a price to charge for the work, per kg or per piece. Leave it off and the cut is free.</p>
+          </div>
           <div class="sm:col-span-2">
             <label class="lbl" for="n_photo">Photo <span class="font-normal text-ink-soft">(optional — you can add it later)</span></label>
             <input class="field !py-2" id="n_photo" name="photo" type="file" accept="image/*" capture="environment" />

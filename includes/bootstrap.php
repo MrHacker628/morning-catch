@@ -122,6 +122,41 @@ function qty_label($qty, string $unit): string
     return rtrim(rtrim(number_format($qty, 2, '.', ''), '0'), '.') . ' kg';
 }
 
+/**
+ * Cut options can carry a charge for the work involved, written as
+ * "Cleaned+50" in a product's cut_options. The number is per kg or per
+ * piece, on top of the fish price, because cleaning 5 kg is ten times
+ * the job that cleaning 500 g is.
+ *
+ * 'Cleaned+50' → ['label' => 'Cleaned', 'fee' => 50.0]
+ * 'Whole'      → ['label' => 'Whole',   'fee' => 0.0]
+ */
+function parse_cut_option(string $raw): array
+{
+    $raw = trim($raw);
+    if (preg_match('/^(.+?)\s*\+\s*(\d+(?:\.\d{1,2})?)$/u', $raw, $m)) {
+        return ['label' => trim($m[1]), 'fee' => round((float) $m[2], 2)];
+    }
+    return ['label' => $raw, 'fee' => 0.0];
+}
+
+/** 'Whole,Cleaned+50' → ['Whole' => 0.0, 'Cleaned' => 50.0] */
+function cut_fee_map(string $cutOptions): array
+{
+    $map = [];
+    foreach (explode(',', $cutOptions) as $raw) {
+        $cut = parse_cut_option($raw);
+        if ($cut['label'] !== '') $map[$cut['label']] = $cut['fee'];
+    }
+    return $map ?: ['Whole' => 0.0];
+}
+
+/** '50' + 'kg' → '+₹50/kg', for showing next to a cut option. */
+function cut_fee_label(float $fee, string $unit): string
+{
+    return $fee > 0 ? '+' . inr($fee) . '/' . ($unit === 'piece' ? 'pc' : 'kg') : '';
+}
+
 /** '10:30' → '10:30 AM'. Falls back to the input if it isn't HH:MM. */
 function pretty_time(string $hhmm): string
 {

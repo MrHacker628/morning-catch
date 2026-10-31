@@ -56,13 +56,13 @@
 
   /* Sample catch, used only in preview mode (opening index.html locally). */
   const SAMPLE_PRODUCTS = [
-    { id: 1, name: 'Kingfish',       local_name: 'Surmai',   description: 'Firm, meaty steaks. Perfect for rava fry.',       category: 'fish',      unit: 'kg',    price: 900, min_qty: 0.5, step_qty: 0.5, stock_qty: 12, initial_stock: 15, cut_options: 'Whole,Cleaned,Steaks (fry cut),Curry cut', badge: 'Bestseller' },
-    { id: 2, name: 'Silver Pomfret', local_name: 'Paplet',   description: 'Medium size, about 350–400 g each.',              category: 'fish',      unit: 'piece', price: 380, min_qty: 1,   step_qty: 1,   stock_qty: 18, initial_stock: 24, cut_options: 'Whole,Cleaned,Scored for tawa fry',        badge: 'Just landed' },
-    { id: 3, name: 'Mackerel',       local_name: 'Bangda',   description: 'Oily and full of flavour. Great for recheado.',   category: 'fish',      unit: 'kg',    price: 260, min_qty: 0.5, step_qty: 0.5, stock_qty: 20, initial_stock: 25, cut_options: 'Whole,Cleaned,Slit for masala',            badge: null },
-    { id: 4, name: 'Tiger Prawns',   local_name: 'Kolambi',  description: 'Large, about 20–25 per kg.',                      category: 'shellfish', unit: 'kg',    price: 650, min_qty: 0.5, step_qty: 0.5, stock_qty: 2,  initial_stock: 10, cut_options: 'Whole,Peeled & deveined,Head-off',         badge: 'Few left' },
-    { id: 5, name: 'Sardines',       local_name: 'Tarle',    description: 'Small and sweet. Best fried crisp.',              category: 'fish',      unit: 'kg',    price: 200, min_qty: 0.5, step_qty: 0.5, stock_qty: 15, initial_stock: 15, cut_options: 'Whole,Cleaned',                            badge: null },
-    { id: 6, name: 'Lady Fish',      local_name: 'Muddoshi', description: 'Delicate white flesh. A local favourite.',         category: 'fish',      unit: 'kg',    price: 520, min_qty: 0.5, step_qty: 0.5, stock_qty: 8,  initial_stock: 10, cut_options: 'Whole,Cleaned,Butterflied',                badge: null },
-    { id: 7, name: 'Mud Crab',       local_name: 'Kurlya',   description: 'Live crabs, about 300–400 g each.',               category: 'shellfish', unit: 'piece', price: 280, min_qty: 1,   step_qty: 1,   stock_qty: 0,  initial_stock: 12, cut_options: 'Whole (live),Cleaned & cut',               badge: null },
+    { id: 1, name: 'Kingfish',       local_name: 'Surmai',   description: 'Firm, meaty steaks. Perfect for rava fry.',       category: 'fish',      unit: 'kg',    price: 900, min_qty: 0.5, step_qty: 0.5, stock_qty: 12, initial_stock: 15, cut_options: 'Whole,Cleaned+50,Steaks (fry cut)+60,Curry cut+60', badge: 'Bestseller' },
+    { id: 2, name: 'Silver Pomfret', local_name: 'Paplet',   description: 'Medium size, about 350–400 g each.',              category: 'fish',      unit: 'piece', price: 380, min_qty: 1,   step_qty: 1,   stock_qty: 18, initial_stock: 24, cut_options: 'Whole,Cleaned+20,Scored for tawa fry+25',        badge: 'Just landed' },
+    { id: 3, name: 'Mackerel',       local_name: 'Bangda',   description: 'Oily and full of flavour. Great for recheado.',   category: 'fish',      unit: 'kg',    price: 260, min_qty: 0.5, step_qty: 0.5, stock_qty: 20, initial_stock: 25, cut_options: 'Whole,Cleaned+40,Slit for masala+50',            badge: null },
+    { id: 4, name: 'Tiger Prawns',   local_name: 'Kolambi',  description: 'Large, about 20–25 per kg.',                      category: 'shellfish', unit: 'kg',    price: 650, min_qty: 0.5, step_qty: 0.5, stock_qty: 2,  initial_stock: 10, cut_options: 'Whole,Peeled & deveined+120,Head-off+60',         badge: 'Few left' },
+    { id: 5, name: 'Sardines',       local_name: 'Tarle',    description: 'Small and sweet. Best fried crisp.',              category: 'fish',      unit: 'kg',    price: 200, min_qty: 0.5, step_qty: 0.5, stock_qty: 15, initial_stock: 15, cut_options: 'Whole,Cleaned+40',                            badge: null },
+    { id: 6, name: 'Lady Fish',      local_name: 'Muddoshi', description: 'Delicate white flesh. A local favourite.',         category: 'fish',      unit: 'kg',    price: 520, min_qty: 0.5, step_qty: 0.5, stock_qty: 8,  initial_stock: 10, cut_options: 'Whole,Cleaned+40,Butterflied+60',                badge: null },
+    { id: 7, name: 'Mud Crab',       local_name: 'Kurlya',   description: 'Live crabs, about 300–400 g each.',               category: 'shellfish', unit: 'piece', price: 280, min_qty: 1,   step_qty: 1,   stock_qty: 0,  initial_stock: 12, cut_options: 'Whole (live),Cleaned & cut+40',               badge: null },
   ];
 
   /* -------------------------------------------------------------------
@@ -98,6 +98,28 @@
     if (unit === 'piece') return `${qty} ${qty == 1 ? 'pc' : 'pcs'}`;
     return qty < 1 ? `${Math.round(qty * 1000)} g` : `${+qty.toFixed(2)} kg`;
   };
+
+  /**
+   * Cut options may carry a preparation charge, written "Cleaned+50" in the
+   * seller's cut list. The number is per kg or per piece, on top of the fish
+   * price. The server works the real total out again from the database — this
+   * is only so the shopper sees the same figure before they pay.
+   *
+   * 'Whole,Cleaned+50' → [{ label: 'Whole', fee: 0 }, { label: 'Cleaned', fee: 50 }]
+   */
+  const parseCuts = (raw) => {
+    const cuts = String(raw || 'Whole').split(',').map((part) => {
+      const m = part.trim().match(/^(.+?)\s*\+\s*(\d+(?:\.\d{1,2})?)$/);
+      return m ? { label: m[1].trim(), fee: +m[2] } : { label: part.trim(), fee: 0 };
+    }).filter((c) => c.label);
+    return cuts.length ? cuts : [{ label: 'Whole', fee: 0 }];
+  };
+
+  /** What a given cut adds per kg / per piece. */
+  const cutFee = (p, label) => (p.cuts.find((c) => c.label === label) || { fee: 0 }).fee;
+
+  /** '+₹50/kg', or '' when the cut is free */
+  const cutFeeLabel = (fee, unit) => (fee > 0 ? `+${money(fee)}/${unit === 'piece' ? 'pc' : 'kg'}` : '');
 
   /** Avoid floating point drift: 0.1 + 0.2 = 0.3, not 0.30000000004 */
   const round2 = (n) => Math.round(n * 100) / 100;
@@ -238,7 +260,7 @@
       step_qty: +p.step_qty || (p.unit === 'piece' ? 1 : 0.5),
       stock_qty: +p.stock_qty,
       initial_stock: +p.initial_stock || +p.stock_qty,
-      cuts: String(p.cut_options || 'Whole').split(',').map((s) => s.trim()).filter(Boolean),
+      cuts: parseCuts(p.cut_options),
     };
   }
 
@@ -372,7 +394,7 @@
     $('#emptyState').classList.toggle('hidden', list.length > 0);
 
     grid.innerHTML = list.map((p, i) => {
-      const d = drafts[p.id] || (drafts[p.id] = { qty: p.min_qty, cut: p.cuts[0] });
+      const d = drafts[p.id] || (drafts[p.id] = { qty: p.min_qty, cut: p.cuts[0].label });
       const available = round2(p.stock_qty - qtyInCart(p.id));
       // Keep the stepper within what's still bookable
       if (d.qty > available) d.qty = Math.max(p.min_qty, available);
@@ -430,7 +452,7 @@
             <label class="sr-only" for="cut-${p.id}">Cut for ${esc(p.name)}</label>
             <select id="cut-${p.id}" data-action="cut" data-id="${p.id}"
                     class="min-w-0 rounded-xl border-0 bg-sand py-2.5 pl-3 pr-8 text-sm font-medium ring-1 ring-ink/10 focus:ring-2 focus:ring-sea">
-              ${p.cuts.map((c) => `<option ${c === d.cut ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+              ${p.cuts.map((c) => `<option value="${esc(c.label)}" ${c.label === d.cut ? 'selected' : ''}>${esc(c.label)}${c.fee > 0 ? ` (${cutFeeLabel(c.fee, p.unit)})` : ''}</option>`).join('')}
             </select>
 
             <div class="flex items-center rounded-xl bg-sand ring-1 ring-ink/10" role="group" aria-label="Quantity">
@@ -443,7 +465,7 @@
           <button type="button" data-action="add" data-id="${p.id}" ${disabled ? 'disabled' : ''}
                   class="mt-3 flex w-full items-center justify-between rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-sand transition hover:bg-sea disabled:cursor-not-allowed disabled:bg-ink/30">
             <span>${!state.bookingOpen ? 'Bookings closed' : available < p.min_qty ? 'All in your basket' : 'Add to basket'}</span>
-            <span class="tabular-nums">${money(round2(d.qty * p.price))}</span>
+            <span data-role="price" class="tabular-nums">${money(round2(d.qty * (p.price + cutFee(p, d.cut))))}</span>
           </button>`}
         </div>
       </article>`;
@@ -467,7 +489,15 @@
 
   $('#productGrid').addEventListener('change', (e) => {
     if (e.target.dataset.action !== 'cut') return;
-    drafts[+e.target.dataset.id].cut = e.target.value;
+    const id = +e.target.dataset.id;
+    drafts[id].cut = e.target.value;
+
+    // A cut with a preparation charge changes what the button costs, so
+    // refresh that one figure. Re-rendering the whole grid here would shut
+    // the dropdown the moment it was used.
+    const p = state.products.find((x) => x.id === id);
+    const priceEl = e.target.closest('article')?.querySelector('[data-role="price"]');
+    if (p && priceEl) priceEl.textContent = money(round2(drafts[id].qty * (p.price + cutFee(p, drafts[id].cut))));
   });
 
   // Filter chips
@@ -492,7 +522,7 @@
     if (qty > allowed) return toast(`Only ${qtyLabel(allowed, p.unit)} left`);
 
     if (existing) existing.qty = round2(existing.qty + qty);
-    else state.cart.push({ key, id: p.id, name: p.name, local_name: p.local_name, unit: p.unit, price: p.price, qty, cut });
+    else state.cart.push({ key, id: p.id, name: p.name, local_name: p.local_name, unit: p.unit, price: p.price, fee: cutFee(p, cut), qty, cut });
 
     drafts[p.id].qty = p.min_qty;    // reset the card stepper
     saveCart();
@@ -513,7 +543,7 @@
   }
 
   const totals = () => {
-    const subtotal = round2(state.cart.reduce((s, i) => s + i.qty * i.price, 0));
+    const subtotal = round2(state.cart.reduce((s, i) => s + i.qty * (i.price + (i.fee || 0)), 0));
     const freeOk = CONFIG.FREE_DELIVERY_ABOVE > 0 && subtotal >= CONFIG.FREE_DELIVERY_ABOVE;
     const delivery = state.fulfilment === 'pickup' || subtotal === 0 || freeOk ? 0 : CONFIG.DELIVERY_FEE;
     return { subtotal, delivery, total: round2(subtotal + delivery) };
@@ -535,7 +565,7 @@
     $('#cartList').innerHTML = state.cart.map((i) => `
       <li class="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-card">
         <div class="min-w-0 flex-1">
-          <p class="truncate font-semibold">${esc(i.name)} <span class="font-normal text-ink-soft">· ${esc(i.cut)}</span></p>
+          <p class="truncate font-semibold">${esc(i.name)} <span class="font-normal text-ink-soft">· ${esc(i.cut)}${i.fee > 0 ? ` ${cutFeeLabel(i.fee, i.unit)}` : ''}</span></p>
           <p class="text-xs text-ink-soft">${money(i.price)} / ${i.unit === 'kg' ? 'kg' : 'pc'}</p>
         </div>
         <div class="flex items-center rounded-lg bg-sand ring-1 ring-ink/10">
@@ -543,7 +573,7 @@
           <span class="min-w-[54px] text-center text-xs font-bold tabular-nums">${qtyLabel(i.qty, i.unit)}</span>
           <button type="button" data-cart="1" data-key="${esc(i.key)}" class="grid h-8 w-8 place-items-center font-bold" aria-label="More">+</button>
         </div>
-        <p class="w-16 text-right text-sm font-bold tabular-nums">${money(round2(i.qty * i.price))}</p>
+        <p class="w-16 text-right text-sm font-bold tabular-nums">${money(round2(i.qty * (i.price + (i.fee || 0))))}</p>
       </li>`).join('');
 
     // Bill summary
@@ -791,7 +821,7 @@
         total_amount: total,
         slot: payload.customer.slot,
         fulfilment: payload.customer.fulfilment,
-        items: state.cart.map((i) => ({ product_name: i.name, cut_type: i.cut, quantity: i.qty, unit: i.unit, line_total: round2(i.qty * i.price) })),
+        items: state.cart.map((i) => ({ product_name: i.name, cut_type: i.cut, quantity: i.qty, unit: i.unit, line_total: round2(i.qty * (i.price + (i.fee || 0))) })),
         email_sent: true,
         whatsapp_sent: true,
         demo: true,

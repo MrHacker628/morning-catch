@@ -85,13 +85,17 @@ foreach ($items as $i) {
     // quantity must be a multiple of the step (0.5 kg, 1 piece…)
     if ($step > 0 && abs(round($qty / $step) * $step - $qty) > 0.001) json_error("Please choose a valid quantity for {$p['name']}.");
 
-    $cuts = array_map('trim', explode(',', (string) $p['cut_options']));
-    if (!in_array($cut, $cuts, true)) $cut = $cuts[0] ?? 'Whole';
+    // The chosen cut decides the preparation charge. Taken from the
+    // database, never from the browser, so nobody can ask for a cleaned
+    // fish at the price of a whole one.
+    $cutFees = cut_fee_map((string) $p['cut_options']);
+    if (!array_key_exists($cut, $cutFees)) $cut = (string) array_key_first($cutFees);
+    $cutFee = round((float) $cutFees[$cut], 2);
 
     $totalQty[$pid] = round(($totalQty[$pid] ?? 0) + $qty, 2);
 
     $unitPrice = round((float) $p['price'], 2);
-    $lineTotal = round($qty * $unitPrice, 2);
+    $lineTotal = round($qty * ($unitPrice + $cutFee), 2);
     $subtotal += $lineTotal;
 
     $lines[] = [
@@ -99,6 +103,7 @@ foreach ($items as $i) {
         'name'       => $p['name'],
         'unit'       => $p['unit'],
         'cut'        => $cut,
+        'cut_fee'    => $cutFee,
         'qty'        => $qty,
         'unit_price' => $unitPrice,
         'line_total' => $lineTotal,
@@ -143,11 +148,11 @@ try {
     $pdo->prepare('UPDATE orders SET order_ref = ? WHERE id = ?')->execute([$orderRef, $orderId]);
 
     $ins = $pdo->prepare(
-        'INSERT INTO order_items (order_id, product_id, product_name, unit, cut_type, quantity, unit_price, line_total)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO order_items (order_id, product_id, product_name, unit, cut_type, cut_fee, quantity, unit_price, line_total)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
     foreach ($lines as $l) {
-        $ins->execute([$orderId, $l['product_id'], $l['name'], $l['unit'], $l['cut'], $l['qty'], $l['unit_price'], $l['line_total']]);
+        $ins->execute([$orderId, $l['product_id'], $l['name'], $l['unit'], $l['cut'], $l['cut_fee'], $l['qty'], $l['unit_price'], $l['line_total']]);
     }
     $pdo->commit();
 } catch (Throwable $e) {

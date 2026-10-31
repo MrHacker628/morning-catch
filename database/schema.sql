@@ -129,6 +129,10 @@ CREATE TABLE IF NOT EXISTS order_items (
     product_name    VARCHAR(80)    NOT NULL,
     unit            ENUM('kg','piece') NOT NULL,
     cut_type        VARCHAR(40)    DEFAULT NULL,
+    -- Preparation charge for that cut, per kg or per piece, as it was on
+    -- the day. Kept beside the price so an old receipt still adds up even
+    -- after the seller changes what cleaning costs.
+    cut_fee         DECIMAL(10,2)  NOT NULL DEFAULT 0,
     quantity        DECIMAL(8,2)   NOT NULL,
     unit_price      DECIMAL(10,2)  NOT NULL,
     line_total      DECIMAL(10,2)  NOT NULL,
@@ -167,13 +171,13 @@ INSERT INTO products
     (name, local_name, description, category, unit, price, min_qty, step_qty,
      stock_qty, initial_stock, cut_options, badge, sort_order)
 VALUES
-    ('Kingfish',       'Surmai',   'Firm, meaty steaks. Perfect for rava fry.',          'fish',      'kg',    900.00, 0.50, 0.50, 12.00, 15.00, 'Whole,Cleaned,Steaks (fry cut),Curry cut', 'Bestseller',  1),
-    ('Silver Pomfret', 'Paplet',   'Medium size, about 350–400 g each.',                 'fish',      'piece', 380.00, 1.00, 1.00, 18.00, 24.00, 'Whole,Cleaned,Scored for tawa fry',        'Just landed', 2),
-    ('Mackerel',       'Bangda',   'Oily and full of flavour. Great for recheado.',      'fish',      'kg',    260.00, 0.50, 0.50, 20.00, 25.00, 'Whole,Cleaned,Slit for masala',            NULL,          3),
-    ('Tiger Prawns',   'Kolambi',  'Large, about 20–25 per kg.',                         'shellfish', 'kg',    650.00, 0.50, 0.50,  6.00, 10.00, 'Whole,Peeled & deveined,Head-off',         'Few left',    4),
-    ('Sardines',       'Tarle',    'Small and sweet. Best fried crisp.',                 'fish',      'kg',    200.00, 0.50, 0.50, 15.00, 15.00, 'Whole,Cleaned',                            NULL,          5),
-    ('Lady Fish',      'Muddoshi', 'Delicate white flesh. A local favourite.',           'fish',      'kg',    520.00, 0.50, 0.50,  8.00, 10.00, 'Whole,Cleaned,Butterflied',                NULL,          6),
-    ('Mud Crab',       'Kurlya',   'Live crabs, about 300–400 g each.',                  'shellfish', 'piece', 280.00, 1.00, 1.00, 10.00, 12.00, 'Whole (live),Cleaned & cut',               NULL,          7);
+    ('Kingfish',       'Surmai',   'Firm, meaty steaks. Perfect for rava fry.',          'fish',      'kg',    900.00, 0.50, 0.50, 12.00, 15.00, 'Whole,Cleaned+50,Steaks (fry cut)+60,Curry cut+60', 'Bestseller',  1),
+    ('Silver Pomfret', 'Paplet',   'Medium size, about 350–400 g each.',                 'fish',      'piece', 380.00, 1.00, 1.00, 18.00, 24.00, 'Whole,Cleaned+20,Scored for tawa fry+25',        'Just landed', 2),
+    ('Mackerel',       'Bangda',   'Oily and full of flavour. Great for recheado.',      'fish',      'kg',    260.00, 0.50, 0.50, 20.00, 25.00, 'Whole,Cleaned+40,Slit for masala+50',            NULL,          3),
+    ('Tiger Prawns',   'Kolambi',  'Large, about 20–25 per kg.',                         'shellfish', 'kg',    650.00, 0.50, 0.50,  6.00, 10.00, 'Whole,Peeled & deveined+120,Head-off+60',         'Few left',    4),
+    ('Sardines',       'Tarle',    'Small and sweet. Best fried crisp.',                 'fish',      'kg',    200.00, 0.50, 0.50, 15.00, 15.00, 'Whole,Cleaned+40',                            NULL,          5),
+    ('Lady Fish',      'Muddoshi', 'Delicate white flesh. A local favourite.',           'fish',      'kg',    520.00, 0.50, 0.50,  8.00, 10.00, 'Whole,Cleaned+40,Butterflied+60',                NULL,          6),
+    ('Mud Crab',       'Kurlya',   'Live crabs, about 300–400 g each.',                  'shellfish', 'piece', 280.00, 1.00, 1.00, 10.00, 12.00, 'Whole (live),Cleaned & cut+40',               NULL,          7);
 
 
 -- ---------------------------------------------------------------------
@@ -185,6 +189,13 @@ VALUES
 --   FROM orders o JOIN order_items i ON i.order_id = o.id
 --   WHERE o.payment_status = 'paid' AND DATE(o.paid_at) = CURDATE()
 --   ORDER BY o.delivery_slot, o.id;
+--
+-- Upgrading a shop that is already live? Add the new column:
+--   ALTER TABLE order_items ADD COLUMN cut_fee DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER cut_type;
+--
+-- Charging for preparation: put the price after a + in cut_options, per kg
+-- or per piece. "Whole,Cleaned+50" means whole is free and cleaning adds
+-- ₹50 per kg (or per piece for pomfret and crab).
 --
 -- Reset stock for a new morning:
 --   UPDATE products SET stock_qty = 15, initial_stock = 15 WHERE id = 1;

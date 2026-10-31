@@ -125,6 +125,15 @@ if ($pdo === null) {
         } catch (Throwable $e) {
             $checks[] = ['warn', 'Could not count the products', h($e->getMessage())];
         }
+
+        // Added later than the first release, so a shop set up before it
+        // exists will have orders fail on every checkout until it is added.
+        try {
+            $pdo->query('SELECT cut_fee FROM order_items LIMIT 1');
+            $checks[] = ['ok', 'Preparation charges are supported', 'order_items has the cut_fee column.'];
+        } catch (Throwable $e) {
+            $checks[] = ['fail', 'order_items is missing the cut_fee column', 'Orders will fail until you add it. In phpMyAdmin pick your database, open the SQL tab and run: ALTER TABLE order_items ADD COLUMN cut_fee DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER cut_type;'];
+        }
     }
 }
 $groups['Database'] = $checks;

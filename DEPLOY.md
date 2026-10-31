@@ -248,6 +248,7 @@ up tells strangers what your server runs.
 Open **`https://yourdomain.com/admin`** on the phone and log in.
 
 - **Today's catch:** set each fish's price, "Landed" and "Left" quantity. Untick "On sale" for anything not caught today. Tap **Save**.
+- **Charging for cleaning:** in a fish's *More details*, write the cut list with a `+` and a price — `Whole,Cleaned+50,Curry cut+60`. That adds ₹50 per kg for cleaning and ₹60 per kg for curry cut, on top of the fish price; `Whole` stays free. For fish sold by the piece the charge is per piece. The shopper sees `Cleaned (+₹50/kg)` in the dropdown and the price updates before they pay.
 - **Photos:** on the same tab, each fish has an **Add a photo** button that opens the phone camera. Shoot the fish on the ice in daylight — the site shrinks and converts it for you, so a 5 MB phone photo becomes a ~40 KB image that loads fast on mobile data. Tick **Remove this photo** to go back to the drawing.
 - **Settings:** update "Catch landed at". On days with no catch, switch **Taking bookings today** off.
 - **Orders:** the packing list. The top box shows the total of each fish to keep aside. Change each order to *Kept aside* → *Out for delivery* → *Done*. Use **Resend receipt** if a buyer says they didn't get it.

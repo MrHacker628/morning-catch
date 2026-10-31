@@ -34,6 +34,7 @@ function receipt_item_lines(array $order): array
 {
     return array_map(function ($i) {
         $cut = $i['cut_type'] ? ' · ' . $i['cut_type'] : '';
+        if ((float) ($i['cut_fee'] ?? 0) > 0) $cut .= ' (' . cut_fee_label((float) $i['cut_fee'], $i['unit']) . ')';
         return $i['product_name'] . $cut . ' — ' . qty_label($i['quantity'], $i['unit']) . ' — ' . inr($i['line_total']);
     }, $order['items']);
 }
@@ -151,7 +152,7 @@ function email_receipt_html(array $order): string
         $rows .= '<tr>
           <td style="padding:12px 0;border-bottom:1px solid #F1E8DA;font-size:15px;color:#0B2733;">
             <strong>' . h($i['product_name']) . '</strong><br>
-            <span style="color:#33505C;font-size:13px;">' . h($i['cut_type'] ?? '') . ' · ' . h(qty_label($i['quantity'], $i['unit'])) . ' × ' . h(inr($i['unit_price'])) . '</span>
+            <span style="color:#33505C;font-size:13px;">' . h($i['cut_type'] ?? '') . ' · ' . h(qty_label($i['quantity'], $i['unit'])) . ' × ' . h(inr($i['unit_price'])) . ((float) ($i['cut_fee'] ?? 0) > 0 ? ' ' . h(cut_fee_label((float) $i['cut_fee'], $i['unit'])) : '') . '</span>
           </td>
           <td align="right" style="padding:12px 0;border-bottom:1px solid #F1E8DA;font-size:15px;color:#0B2733;white-space:nowrap;">' . h(inr($i['line_total'])) . '</td>
         </tr>';
