@@ -34,6 +34,7 @@ includes/                shared PHP (blocked from the browser)
   db.php                 MySQL connection
   settings.php           shop settings + booking cutoff
   business.php           the seller's name, address, FSSAI, contact details
+  societies.php          apartment-society batch delivery and its threshold
   page.php               header/footer shared by the five policy pages
   photos.php             resizes and stores uploaded fish photos
   razorpay.php           Razorpay API via cURL (no Composer needed)
@@ -51,6 +52,20 @@ The footer, the five policy pages and the contact page all read from there, so *
 HTML to rebrand the site**. Anything left blank is simply left off the page.
 
 Secret keys live in `morning-catch-config.php` **outside** `public_html`, never in this repo.
+
+## Society batch delivery
+
+Delivering one 500 g order to a 20-flat block costs more than it earns, so flats
+order individually and the van waits. Once `shop.society_threshold` different
+flats in the same society have ordered for the day (3 by default), delivery is
+free for all of them and the van makes one stop at `shop.society_slot`.
+
+The threshold is decided on the server from the database, never from the
+browser, and distinct **flats** are counted — one flat ordering three times does
+not unlock free delivery for the building. Flats who paid before the threshold
+was reached are listed in `/admin` → Orders as money to hand back.
+
+Set the threshold to `1` to give every society order free delivery outright.
 
 ## Photos
 

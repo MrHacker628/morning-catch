@@ -37,6 +37,12 @@
     },
     THEME_COLOR: '#F2643D',           // Razorpay overlay accent
 
+    /* Apartment societies the van batch-delivers to. Sent by the server;
+       empty here so preview mode simply hides the whole section. */
+    SOCIETIES: [],
+    SOCIETY_THRESHOLD: 3,
+    SOCIETY_SLOT: '5:00 – 6:30 PM',
+
     /* Seller name, contact details and licence numbers. The server sends
        the real values from the `business` block of the config file, so
        nobody has to edit index.html to rebrand the site. */
@@ -76,6 +82,7 @@
     bookingOpen: true,
     slot: null,
     fulfilment: 'delivery',
+    societyId: 0,          // 0 = ordinary address, not a batch delivery
   };
 
   // Per-card draft selections before "Add" is pressed: { [productId]: { qty, cut } }
@@ -334,6 +341,7 @@
     setInterval(updateCutoff, 30_000);
     renderProducts();
     renderCart();
+    renderSocieties();
     renderSlots();
     restoreCustomer();
   }
@@ -545,8 +553,16 @@
   const totals = () => {
     const subtotal = round2(state.cart.reduce((s, i) => s + i.qty * (i.price + (i.fee || 0)), 0));
     const freeOk = CONFIG.FREE_DELIVERY_ABOVE > 0 && subtotal >= CONFIG.FREE_DELIVERY_ABOVE;
-    const delivery = state.fulfilment === 'pickup' || subtotal === 0 || freeOk ? 0 : CONFIG.DELIVERY_FEE;
-    return { subtotal, delivery, total: round2(subtotal + delivery) };
+
+    // Enough flats in their society have already ordered today, so the van
+    // is going anyway. The server decides this for real at checkout — this
+    // is only so the bill on screen matches what they will be charged.
+    const society = (CONFIG.SOCIETIES || []).find((x) => x.id === state.societyId);
+    const societyFree = !!society && society.needed === 0;
+
+    const delivery = state.fulfilment === 'pickup' || subtotal === 0 || freeOk || societyFree
+      ? 0 : CONFIG.DELIVERY_FEE;
+    return { subtotal, delivery, total: round2(subtotal + delivery), societyFree };
   };
 
   function renderCart() {
@@ -578,14 +594,18 @@
 
     // Bill summary
     $('#sumSubtotal').textContent = money(subtotal);
-    $('#sumDelivery').textContent = state.fulfilment === 'pickup' ? 'Free (pickup)' : delivery === 0 && subtotal > 0 ? 'Free' : money(delivery);
+    $('#sumDelivery').textContent = state.fulfilment === 'pickup' ? 'Free (pickup)'
+      : delivery === 0 && subtotal > 0 ? 'Free' : money(delivery);
+    $('#sumDeliveryLabel').textContent = state.fulfilment === 'pickup' ? 'Pickup'
+      : state.societyId ? 'Delivery (society batch)' : 'Delivery';
     $('#sumTotal').textContent = money(total);
     $('#payBtnText').textContent = `Pay ${money(total)} securely`;
     $('#payBtn').disabled = count === 0;
 
     const hint = $('#freeDeliveryHint');
     const gap = round2(CONFIG.FREE_DELIVERY_ABOVE - subtotal);
-    const showHint = state.fulfilment === 'delivery' && CONFIG.FREE_DELIVERY_ABOVE > 0 && subtotal > 0 && gap > 0;
+    const showHint = state.fulfilment === 'delivery' && !state.societyId
+      && CONFIG.FREE_DELIVERY_ABOVE > 0 && subtotal > 0 && gap > 0;
     hint.classList.toggle('hidden', !showHint);
     if (showHint) hint.textContent = `Add ${money(gap)} more for free delivery`;
   }
@@ -634,7 +654,75 @@
   $('#checkoutBackdrop').addEventListener('click', closeCheckout);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#checkout').classList.contains('hidden')) closeCheckout(); });
 
+  /**
+   * Apartment society batch delivery.
+   *
+   * One flat's order does not pay for a van trip, so flats order one by
+   * one and the van goes when enough of them have. Picking a society
+   * swaps the street address for a flat number and the slot list for the
+   * single evening window the van runs in.
+   */
+  function renderSocieties() {
+    const list = CONFIG.SOCIETIES || [];
+    const wrap = $('#societyWrap');
+    if (!wrap) return;
+
+    // Nothing to offer, or they are collecting it themselves
+    const show = list.length > 0 && state.fulfilment === 'delivery';
+    wrap.classList.toggle('hidden', !show);
+    if (!show) {
+      state.societyId = 0;
+      $('#flatWrap').classList.add('hidden');
+      $('#addressWrap').classList.toggle('hidden', state.fulfilment === 'pickup');
+      return;
+    }
+
+    const select = $('#society');
+    if (select.options.length <= 1) {
+      // Group by area so a long list stays readable
+      const areas = [...new Set(list.map((x) => x.area || ''))];
+      select.insertAdjacentHTML('beforeend', areas.map((area) => {
+        const inArea = list.filter((x) => (x.area || '') === area);
+        const options = inArea.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
+        return area ? `<optgroup label="${esc(area)}">${options}</optgroup>` : options;
+      }).join(''));
+    }
+
+    const chosen = list.find((x) => x.id === state.societyId);
+    $('#flatWrap').classList.toggle('hidden', !chosen);
+    $('#addressWrap').classList.toggle('hidden', !!chosen);
+
+    const hint = $('#societyHint');
+    if (!chosen) {
+      hint.classList.add('hidden');
+      return;
+    }
+
+    // Tell them honestly where the order stands against the threshold
+    hint.classList.remove('hidden');
+    if (chosen.needed === 0) {
+      hint.textContent = `${chosen.ordered} flats here have ordered today — your delivery is free.`;
+    } else if (chosen.ordered === 0) {
+      hint.textContent = `Be the first in your building. Delivery is ${money(CONFIG.DELIVERY_FEE)} today, and we hand it back if ${CONFIG.SOCIETY_THRESHOLD - 1} more flats order.`;
+    } else {
+      const more = chosen.needed;
+      hint.textContent = `${chosen.ordered} ${chosen.ordered === 1 ? 'flat has' : 'flats have'} ordered today. ${more} more and delivery is free for all of you — tell your neighbours.`;
+    }
+  }
+
   function renderSlots() {
+    // A society order rides the single evening batch run, so there is
+    // nothing to choose — show the window and set it.
+    if (state.societyId) {
+      state.slot = CONFIG.SOCIETY_SLOT;
+      $('#slotLegend').textContent = 'Evening batch drop';
+      $('#slotList').innerHTML = `
+        <p class="col-span-2 rounded-xl bg-sea-light px-3 py-2.5 text-sm font-semibold text-sea">
+          ${esc(CONFIG.SOCIETY_SLOT)} — one stop for the whole building
+        </p>`;
+      return;
+    }
+
     const slots = CONFIG.SLOTS[state.fulfilment];
     if (!slots.includes(state.slot)) state.slot = null;
     $('#slotLegend').textContent = state.fulfilment === 'pickup' ? 'Pickup time' : 'Delivery time';
@@ -656,10 +744,18 @@
 
   $$('input[name="fulfilment"]').forEach((r) => r.addEventListener('change', () => {
     state.fulfilment = r.value;
+    if (r.value === 'pickup') { state.societyId = 0; $('#society').value = ''; }
     $('#addressWrap').classList.toggle('hidden', r.value === 'pickup');
     $('#sumDeliveryLabel').textContent = r.value === 'pickup' ? 'Pickup' : 'Delivery';
-    renderSlots(); renderCart();
+    renderSocieties(); renderSlots(); renderCart();
   }));
+
+  $('#society').addEventListener('change', (e) => {
+    state.societyId = +e.target.value || 0;
+    state.slot = null;              // the batch window replaces whatever was picked
+    setError('flat', '');
+    renderSocieties(); renderSlots(); renderCart();
+  });
 
   /* -------------------------------------------------------------------
      9. FORM VALIDATION
@@ -688,21 +784,25 @@
       phone: cleanPhone(f.phone.value),
       email: f.email.value.trim(),
       address: f.address.value.trim(),
+      flat: ($('#flat').value || '').trim(),
       notes: f.notes.value.trim(),
     };
     const errors = {};
+    const society = state.fulfilment === 'delivery' && state.societyId;
 
     if (data.name.length < 2) errors.name = 'Please enter your name';
     if (!/^[6-9]\d{9}$/.test(data.phone)) errors.phone = 'Enter a valid 10-digit Indian mobile number';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email)) errors.email = 'Enter a valid email so we can send your receipt';
-    if (state.fulfilment === 'delivery' && data.address.length < 10) errors.address = 'Please add your full address with a landmark';
+    if (society && data.flat.length < 1) errors.flat = 'Which flat should we bring it to?';
+    if (state.fulfilment === 'delivery' && !society && data.address.length < 10) errors.address = 'Please add your full address with a landmark';
     if (!state.slot) errors.slot = 'Pick a time that suits you';
 
-    ['name', 'phone', 'email', 'address', 'slot'].forEach((k) => setError(k, errors[k] || ''));
+    ['name', 'phone', 'email', 'address', 'flat', 'slot'].forEach((k) => setError(k, errors[k] || ''));
 
     const first = Object.keys(errors)[0];
     if (first) {
       const el = first === 'slot' ? $('#slotList') : $(`#${first}`);
+      if (!el) return null;
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       if (el.focus && first !== 'slot') el.focus({ preventScroll: true });
       return null;
@@ -711,7 +811,7 @@
   }
 
   // Clear an error as soon as the user fixes the field
-  ['name', 'phone', 'email', 'address'].forEach((id) => $(`#${id}`).addEventListener('input', () => setError(id, '')));
+  ['name', 'phone', 'email', 'address', 'flat'].forEach((id) => $(`#${id}`).addEventListener('input', () => setError(id, '')));
   // Digits only in the phone box
   $('#phone').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/[^\d ]/g, ''); });
 
@@ -739,7 +839,13 @@
 
     // Only IDs, quantities and cuts go to the server — it works out the price.
     const payload = {
-      customer: { ...customer, fulfilment: state.fulfilment, slot: state.slot },
+      customer: {
+        ...customer,
+        fulfilment: state.fulfilment,
+        slot: state.slot,
+        society_id: state.fulfilment === 'delivery' ? state.societyId : 0,
+        flat: state.fulfilment === 'delivery' ? customer.flat : '',
+      },
       items: state.cart.map((i) => ({ product_id: i.id, qty: i.qty, cut: i.cut })),
     };
 

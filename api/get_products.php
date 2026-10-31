@@ -51,5 +51,11 @@ json_out([
 
         // Seller name, contact details and legal links for the footer
         'BUSINESS'            => business_public(),
+
+        // Apartment societies the van batch-delivers to, with how many
+        // flats have ordered today and how many more unlock free delivery.
+        'SOCIETIES'           => societies_public(),
+        'SOCIETY_THRESHOLD'   => society_threshold(),
+        'SOCIETY_SLOT'        => society_slot(),
     ],
 ]);

@@ -212,6 +212,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             break;
 
+        case 'add_society':
+            $sName = trim((string) ($_POST['name'] ?? ''));
+            if ($sName === '') { flash('Give the society a name.'); break; }
+            db()->prepare('INSERT INTO societies (name, area, sort_order) VALUES (?, ?, ?)')
+                ->execute([$sName, trim((string) ($_POST['area'] ?? '')) ?: null, (int) ($_POST['sort_order'] ?? 99)]);
+            flash("$sName added to the delivery list.");
+            break;
+
+        case 'save_societies':
+            $upd = db()->prepare('UPDATE societies SET name = ?, area = ?, is_active = ?, sort_order = ? WHERE id = ?');
+            foreach ((array) ($_POST['s'] ?? []) as $sid => $row) {
+                $sName = trim((string) ($row['name'] ?? ''));
+                if ($sName === '') continue;
+                $upd->execute([
+                    $sName,
+                    trim((string) ($row['area'] ?? '')) ?: null,
+                    isset($row['is_active']) ? 1 : 0,
+                    (int) ($row['sort_order'] ?? 0),
+                    (int) $sid,
+                ]);
+            }
+            flash('Societies saved.');
+            break;
+
+        case 'delete_society':
+            $sid   = (int) ($_POST['society_id'] ?? 0);
+            $sName = trim((string) ($_POST['society_name'] ?? 'That society'));
+            // Orders point at it, so hide rather than delete once it has been used.
+            $used = db()->prepare('SELECT COUNT(*) FROM orders WHERE society_id = ?');
+            $used->execute([$sid]);
+            if ((int) $used->fetchColumn() > 0) {
+                db()->prepare('UPDATE societies SET is_active = 0 WHERE id = ?')->execute([$sid]);
+                flash("$sName has had orders, so it was switched off rather than deleted — past orders keep their address.");
+            } else {
+                db()->prepare('DELETE FROM societies WHERE id = ?')->execute([$sid]);
+                flash("$sName removed.");
+            }
+            break;
+
+        case 'mark_refunded':
+            db()->prepare('UPDATE orders SET delivery_waived = 1 WHERE id = ?')
+                ->execute([(int) ($_POST['order_id'] ?? 0)]);
+            flash('Marked as refunded.');
+            break;
+
         case 'save_settings':
             save_setting('landed_at', trim((string) ($_POST['landed_at'] ?? '')) ?: '5:45 AM');
             $cutoff = (string) ($_POST['cutoff'] ?? '10:30');
@@ -231,7 +276,8 @@ unset($_SESSION['flash']);
 /* ---------------------------------------------------------------------
    Data for the page
    --------------------------------------------------------------------- */
-$tab  = in_array($_GET['tab'] ?? '', ['orders', 'catch', 'settings'], true) ? $_GET['tab'] : 'orders';
+$tab  = in_array($_GET['tab'] ?? '', ['orders', 'catch', 'societies', 'settings'], true) ? $_GET['tab'] : 'orders';
+$societies = [];
 $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : date('Y-m-d');
 
 $statusLabels = [
@@ -330,7 +376,7 @@ if ($isAdmin) {
       </form>
     </div>
     <nav class="mx-auto flex max-w-4xl gap-1 px-4 pb-2">
-      <?php foreach (['orders' => 'Orders', 'catch' => "Today's catch", 'settings' => 'Settings'] as $k => $label): ?>
+      <?php foreach (['orders' => 'Orders', 'catch' => "Today's catch", 'societies' => 'Societies', 'settings' => 'Settings'] as $k => $label): ?>
         <a href="?tab=<?= $k ?>" class="rounded-full px-4 py-2 text-sm font-semibold <?= $tab === $k ? 'bg-sand text-ink' : 'text-sand/80 hover:bg-sand/10' ?>"><?= $label ?></a>
       <?php endforeach; ?>
     </nav>
@@ -366,6 +412,42 @@ if ($isAdmin) {
               <span class="rounded-full bg-sand px-3 py-1.5 text-sm"><strong><?= h($fish) ?></strong> · <?= h(qty_label($p['qty'], $p['unit'])) ?></span>
             <?php endforeach; ?>
           </div>
+        </section>
+      <?php endif; ?>
+
+      <?php
+        // Flats that paid for delivery before their society reached the
+        // threshold. The van is going there anyway now, so they are owed
+        // it back — easiest handed over at the door.
+        $refunds = society_refunds_due($date);
+      ?>
+      <?php if ($refunds): ?>
+        <section class="mt-5 rounded-3xl bg-sun-light p-4">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-[#8A5D06]">Delivery to hand back</h2>
+          <p class="mt-1 text-sm text-[#8A5D06]">
+            These flats paid before their building reached <?= (int) society_threshold() ?> orders. Give it back on the drop, then tick it off.
+          </p>
+          <ul class="mt-3 space-y-2">
+            <?php foreach ($refunds as $r): ?>
+              <li class="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-white px-3 py-2.5">
+                <span class="text-sm">
+                  <strong><?= h($r['society_name']) ?></strong> · Flat <?= h($r['flat_number']) ?>
+                  <span class="text-ink-soft">· <?= h($r['customer_name']) ?> · <?= h($r['order_ref']) ?></span>
+                </span>
+                <span class="flex items-center gap-2">
+                  <strong class="tabular-nums"><?= h(inr($r['delivery_fee'])) ?></strong>
+                  <form method="post" class="inline">
+                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>" />
+                    <input type="hidden" name="action" value="mark_refunded" />
+                    <input type="hidden" name="tab" value="orders" />
+                    <input type="hidden" name="date" value="<?= h($date) ?>" />
+                    <input type="hidden" name="order_id" value="<?= (int) $r['id'] ?>" />
+                    <button class="rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-sand hover:bg-sea">Given back</button>
+                  </form>
+                </span>
+              </li>
+            <?php endforeach; ?>
+          </ul>
         </section>
       <?php endif; ?>
 
@@ -422,6 +504,70 @@ if ($isAdmin) {
           </article>
         <?php endforeach; ?>
       </div>
+
+    <?php elseif ($tab === 'societies'): ?>
+      <!-- ============================ SOCIETIES ============================ -->
+      <?php $societies = db()->query('SELECT * FROM societies ORDER BY sort_order, name')->fetchAll(); ?>
+      <h1 class="font-display text-3xl font-bold">Societies</h1>
+      <p class="text-sm text-ink-soft">
+        Buildings the van drops to in one stop. Once
+        <strong><?= (int) society_threshold() ?></strong> different flats in the same society have ordered
+        for the day, delivery is free for all of them and the van goes once, at <?= h(society_slot()) ?>.
+      </p>
+      <p class="mt-1 text-sm text-ink-soft">The flats who ordered before the <?= (int) society_threshold() ?>rd still paid — the Orders tab lists who to hand it back to.</p>
+
+      <form method="post" class="mt-5 space-y-3">
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>" /><input type="hidden" name="action" value="save_societies" /><input type="hidden" name="tab" value="societies" />
+        <?php if (!$societies): ?>
+          <p class="rounded-3xl bg-white p-6 text-center text-sm text-ink-soft">No societies yet. Add the first one below.</p>
+        <?php endif; ?>
+        <?php foreach ($societies as $soc): $sid = (int) $soc['id']; ?>
+          <fieldset class="rounded-3xl bg-white p-4 shadow-card <?= $soc['is_active'] ? '' : 'opacity-60' ?>">
+            <div class="flex items-center justify-between gap-3">
+              <legend class="font-display text-xl font-bold"><?= h($soc['name']) ?></legend>
+              <label class="flex items-center gap-2 text-sm font-semibold">
+                <input type="checkbox" name="s[<?= $sid ?>][is_active]" class="h-5 w-5 rounded text-sea" <?= $soc['is_active'] ? 'checked' : '' ?> /> Delivering
+              </label>
+            </div>
+            <div class="mt-3 grid gap-2 sm:grid-cols-3">
+              <div class="sm:col-span-2"><label class="lbl" for="sn<?= $sid ?>">Name</label><input class="field" id="sn<?= $sid ?>" name="s[<?= $sid ?>][name]" value="<?= h($soc['name']) ?>" /></div>
+              <div><label class="lbl" for="sa<?= $sid ?>">Area</label><input class="field" id="sa<?= $sid ?>" name="s[<?= $sid ?>][area]" value="<?= h($soc['area']) ?>" placeholder="Baina" /></div>
+              <div><label class="lbl" for="so<?= $sid ?>">Position</label><input class="field" id="so<?= $sid ?>" name="s[<?= $sid ?>][sort_order]" type="number" value="<?= (int) $soc['sort_order'] ?>" /></div>
+            </div>
+            <div class="mt-3 border-t border-ink/10 pt-3">
+              <button type="submit" form="delsoc<?= $sid ?>"
+                      class="text-sm font-semibold text-coral-dark underline hover:no-underline"
+                      onclick="return confirm('Remove <?= h(addslashes($soc['name'])) ?> from the delivery list?')">
+                Remove this society
+              </button>
+              <p class="mt-1 text-xs text-ink-soft">If it already has orders it is switched off instead, so old orders keep their address.</p>
+            </div>
+          </fieldset>
+        <?php endforeach; ?>
+        <?php if ($societies): ?>
+          <button class="sticky bottom-3 w-full rounded-2xl bg-coral py-4 text-base font-bold text-white shadow-card hover:bg-coral-dark">Save societies</button>
+        <?php endif; ?>
+      </form>
+
+      <?php foreach ($societies as $soc): ?>
+        <form method="post" id="delsoc<?= (int) $soc['id'] ?>" class="hidden">
+          <input type="hidden" name="csrf" value="<?= h($csrf) ?>" />
+          <input type="hidden" name="action" value="delete_society" />
+          <input type="hidden" name="tab" value="societies" />
+          <input type="hidden" name="society_id" value="<?= (int) $soc['id'] ?>" />
+          <input type="hidden" name="society_name" value="<?= h($soc['name']) ?>" />
+        </form>
+      <?php endforeach; ?>
+
+      <form method="post" class="mt-8 rounded-3xl bg-white p-4 shadow-card">
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>" /><input type="hidden" name="action" value="add_society" /><input type="hidden" name="tab" value="societies" />
+        <h2 class="font-display text-xl font-bold">Add a society</h2>
+        <div class="mt-3 grid gap-2 sm:grid-cols-3">
+          <div class="sm:col-span-2"><label class="lbl" for="ns_name">Name</label><input class="field" id="ns_name" name="name" placeholder="Ocean Breeze Apts" required /></div>
+          <div><label class="lbl" for="ns_area">Area</label><input class="field" id="ns_area" name="area" placeholder="Baina" /></div>
+        </div>
+        <button class="mt-4 w-full rounded-2xl bg-ink py-3 font-semibold text-sand hover:bg-sea">Add society</button>
+      </form>
 
     <?php elseif ($tab === 'catch'): ?>
       <!-- ============================ TODAY'S CATCH ============================ -->

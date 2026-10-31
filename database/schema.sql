@@ -82,6 +82,13 @@ CREATE TABLE IF NOT EXISTS orders (
     fulfilment            ENUM('delivery','pickup') NOT NULL DEFAULT 'delivery',
     delivery_address      TEXT           DEFAULT NULL,         -- NULL for shop pickup
     delivery_slot         VARCHAR(40)    DEFAULT NULL,         -- "7:00 – 8:00 AM"
+
+    -- Society batch delivery. society_id is NULL for an ordinary address.
+    society_id            INT UNSIGNED   DEFAULT NULL,
+    flat_number           VARCHAR(20)    DEFAULT NULL,         -- "A-101"
+    -- 1 once this order was part of a society batch that reached the
+    -- threshold, so the seller knows whose delivery fee to hand back.
+    delivery_waived       TINYINT(1)     NOT NULL DEFAULT 0,
     notes                 VARCHAR(255)   DEFAULT NULL,         -- "Ring the bell twice", "Extra cleaning"
 
     -- Money (₹)
@@ -145,6 +152,26 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 
 -- ---------------------------------------------------------------------
+--  3b. SOCIETIES — the housing societies the shop delivers to as a batch
+--
+--  Delivering one 500 g order to a 20-flat block costs more than it earns.
+--  So flats order individually, and once enough of them in the same
+--  society have ordered for the same day, the van makes one stop and
+--  nobody pays delivery. The seller keeps this list from /admin.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS societies (
+    id          INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    name        VARCHAR(120)  NOT NULL,              -- "Ocean Breeze Apts"
+    area        VARCHAR(80)   DEFAULT NULL,          -- "Baina", "Chicalim"
+    is_active   TINYINT(1)    NOT NULL DEFAULT 1,
+    sort_order  INT           NOT NULL DEFAULT 0,
+    created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_active (is_active, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ---------------------------------------------------------------------
 --  4. SETTINGS — things the seller changes from the admin page
 --  (landing time, booking cutoff, delivery fee, open/closed today).
 --  Anything not set here falls back to the config file.
@@ -180,6 +207,14 @@ VALUES
     ('Mud Crab',       'Kurlya',   'Live crabs, about 300–400 g each.',                  'shellfish', 'piece', 280.00, 1.00, 1.00, 10.00, 12.00, 'Whole (live),Cleaned & cut+40',               NULL,          7);
 
 
+INSERT INTO societies (name, area, sort_order) VALUES
+    ('Ocean Breeze Apts',   'Baina',       1),
+    ('Harbour View Towers', 'Vasco Town',  2),
+    ('Green Meadows',       'Chicalim',    3),
+    ('Sea Pearl Residency', 'New Vaddem',  4),
+    ('Airport Heights',     'Dabolim',     5);
+
+
 -- ---------------------------------------------------------------------
 --  Handy queries for the seller (run in phpMyAdmin)
 -- ---------------------------------------------------------------------
@@ -190,8 +225,12 @@ VALUES
 --   WHERE o.payment_status = 'paid' AND DATE(o.paid_at) = CURDATE()
 --   ORDER BY o.delivery_slot, o.id;
 --
--- Upgrading a shop that is already live? Add the new column:
+-- Upgrading a shop that is already live? Add the new columns:
 --   ALTER TABLE order_items ADD COLUMN cut_fee DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER cut_type;
+--   ALTER TABLE orders ADD COLUMN society_id INT UNSIGNED NULL AFTER delivery_slot,
+--                      ADD COLUMN flat_number VARCHAR(20) NULL AFTER society_id,
+--                      ADD COLUMN delivery_waived TINYINT(1) NOT NULL DEFAULT 0 AFTER flat_number;
+--   (and run the CREATE TABLE societies above, plus its INSERT, once)
 --
 -- Charging for preparation: put the price after a + in cut_options, per kg
 -- or per piece. "Whole,Cleaned+50" means whole is free and cleaning adds

@@ -367,6 +367,25 @@
             </div>
           </fieldset>
 
+          <!-- Society batch delivery. Hidden when the seller has no
+               societies listed, or when the order is a pickup. -->
+          <div id="societyWrap" class="hidden">
+            <label for="society" class="mb-1.5 block text-sm font-semibold">Your apartment society</label>
+            <select id="society" name="society"
+                    class="w-full rounded-xl border-0 bg-white px-4 py-3.5 text-base shadow-card ring-1 ring-ink/10 focus:ring-2 focus:ring-sea">
+              <option value="">I'll type my address instead</option>
+            </select>
+            <p id="societyHint" class="mt-1.5 hidden rounded-lg bg-sea-light px-3 py-2 text-xs font-medium text-sea"></p>
+          </div>
+
+          <div id="flatWrap" class="hidden">
+            <label for="flat" class="mb-1.5 block text-sm font-semibold">Flat number</label>
+            <input id="flat" name="flat" type="text" maxlength="20"
+                   class="w-full rounded-xl border-0 bg-white px-4 py-3.5 text-base shadow-card ring-1 ring-ink/10 placeholder:text-ink/35 focus:ring-2 focus:ring-sea"
+                   placeholder="e.g. A-101" />
+            <p class="field-error mt-1 hidden text-xs font-medium text-coral-dark" data-for="flat"></p>
+          </div>
+
           <!-- Time slot chips (filled by script.js) -->
           <fieldset>
             <legend class="mb-2 text-sm font-semibold" id="slotLegend">Delivery time</legend>

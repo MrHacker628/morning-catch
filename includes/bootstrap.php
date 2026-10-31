@@ -179,3 +179,4 @@ function h(?string $s): string
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/business.php';
+require_once __DIR__ . '/societies.php';

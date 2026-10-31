@@ -50,6 +50,15 @@ return [
         // Where the seller's stall is (shown on pickup receipts)
         'pickup_address' => 'Stall 12, Fish Market, Panaji',
 
+        // --- Apartment society batch delivery ---------------------------
+        // Flats in a listed society order one by one; once this many
+        // DIFFERENT flats in the same society have ordered for the day,
+        // the van makes one stop and delivery is free for all of them.
+        // Set to 1 to give every society order free delivery outright.
+        'society_threshold' => 3,
+        // The single evening window the batch van runs in.
+        'society_slot'      => '5:00 – 6:30 PM',
+
         // true = ignore the cutoff time (handy while testing in the evening)
         'ignore_cutoff' => false,
     ],

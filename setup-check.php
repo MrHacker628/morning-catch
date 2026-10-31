@@ -134,6 +134,23 @@ if ($pdo === null) {
         } catch (Throwable $e) {
             $checks[] = ['fail', 'order_items is missing the cut_fee column', 'Orders will fail until you add it. In phpMyAdmin pick your database, open the SQL tab and run: ALTER TABLE order_items ADD COLUMN cut_fee DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER cut_type;'];
         }
+
+        try {
+            $pdo->query('SELECT id, name, area, is_active FROM societies LIMIT 1');
+            $n = (int) $pdo->query('SELECT COUNT(*) FROM societies WHERE is_active = 1')->fetchColumn();
+            $checks[] = $n > 0
+                ? ['ok', "$n societies on the delivery list", 'Flats can pick their building at checkout.']
+                : ['warn', 'No societies listed yet', 'Batch delivery stays hidden until you add one in /admin → Societies.'];
+        } catch (Throwable $e) {
+            $checks[] = ['fail', 'The societies table is missing', 'Batch delivery cannot work. Run the CREATE TABLE societies statement from database/schema.sql in phpMyAdmin → SQL.'];
+        }
+
+        try {
+            $pdo->query('SELECT society_id, flat_number, delivery_waived FROM orders LIMIT 1');
+            $checks[] = ['ok', 'Orders can record a society and flat', 'orders has society_id, flat_number and delivery_waived.'];
+        } catch (Throwable $e) {
+            $checks[] = ['fail', 'orders is missing the society columns', 'Checkout will fail. Run: ALTER TABLE orders ADD COLUMN society_id INT UNSIGNED NULL AFTER delivery_slot, ADD COLUMN flat_number VARCHAR(20) NULL AFTER society_id, ADD COLUMN delivery_waived TINYINT(1) NOT NULL DEFAULT 0 AFTER flat_number;'];
+        }
     }
 }
 $groups['Database'] = $checks;

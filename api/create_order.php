@@ -46,13 +46,33 @@ $phone = preg_replace('/\D/', '', (string) ($c['phone'] ?? ''));
 if (strlen($phone) === 12 && str_starts_with($phone, '91')) $phone = substr($phone, 2);
 if (strlen($phone) === 11 && str_starts_with($phone, '0'))  $phone = substr($phone, 1);
 
+/* Society batch delivery: the flat replaces the street address, and the
+   van's single evening window replaces the slot picker. */
+$societyId = (int) ($c['society_id'] ?? 0);
+$flat      = trim((string) ($c['flat'] ?? ''));
+$society   = null;
+
+if ($societyId > 0 && $fulfilment === 'delivery') {
+    foreach (societies_active() as $row) {
+        if ((int) $row['id'] === $societyId) { $society = $row; break; }
+    }
+    if (!$society) json_error('That society is no longer on the delivery list. Please pick another, or enter your address.');
+    if (mb_strlen($flat) < 1 || mb_strlen($flat) > 20) json_error('Please enter your flat number.');
+
+    $slot    = society_slot();
+    $address = 'Flat ' . $flat . ', ' . $society['name'] . ($society['area'] ? ', ' . $society['area'] : '');
+} else {
+    $societyId = 0;
+    $flat      = '';
+}
+
 if (mb_strlen($name) < 2 || mb_strlen($name) > 100)            json_error('Please enter your name.');
 if (!preg_match('/^[6-9]\d{9}$/', $phone))                      json_error('Please enter a valid 10-digit Indian mobile number.');
 if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) json_error('Please enter a valid email address.');
-if ($fulfilment === 'delivery' && (mb_strlen($address) < 10 || mb_strlen($address) > 400)) json_error('Please enter your full delivery address.');
-if (!in_array($slot, (array) cfg("shop.slots.$fulfilment", []), true)) json_error('Please choose a time slot.');
+if ($fulfilment === 'delivery' && !$society && (mb_strlen($address) < 10 || mb_strlen($address) > 400)) json_error('Please enter your full delivery address.');
+if (!$society && !in_array($slot, (array) cfg("shop.slots.$fulfilment", []), true)) json_error('Please choose a time slot.');
 if (mb_strlen($notes) > 200) $notes = mb_substr($notes, 0, 200);
-if ($fulfilment === 'pickup') $address = '';
+if ($fulfilment === 'pickup') { $address = ''; $societyId = 0; $flat = ''; $society = null; }
 
 /* ---------------------------------------------------------------------
    3. Validate items and price them from the DATABASE
@@ -122,6 +142,15 @@ foreach ($totalQty as $pid => $qty) {
 
 $subtotal    = round($subtotal, 2);
 $deliveryFee = delivery_fee_for($subtotal, $fulfilment);
+
+// Enough flats in this society have ordered today, so the van is coming
+// anyway and this order rides along free. Decided here, from the
+// database, never from whatever the browser claimed.
+$waived = false;
+if ($society && $deliveryFee > 0 && society_delivery_is_free($societyId, $flat)) {
+    $deliveryFee = 0.0;
+    $waived      = true;
+}
 $total       = round($subtotal + $deliveryFee, 2);
 if ($total < 1) json_error('Order total is too small.');
 
@@ -137,11 +166,13 @@ try {
     $pdo->prepare(
         'INSERT INTO orders
             (order_ref, customer_name, customer_phone, customer_email, fulfilment, delivery_address,
-             delivery_slot, notes, subtotal, delivery_fee, total_amount, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             delivery_slot, society_id, flat_number, delivery_waived, notes, subtotal, delivery_fee,
+             total_amount, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )->execute([
         $tmpRef, $name, '91' . $phone, $email, $fulfilment, $address ?: null,
-        $slot, $notes ?: null, $subtotal, $deliveryFee, $total, now_sql(),
+        $slot, $societyId ?: null, $flat ?: null, $waived ? 1 : 0,
+        $notes ?: null, $subtotal, $deliveryFee, $total, now_sql(),
     ]);
     $orderId  = (int) $pdo->lastInsertId();
     $orderRef = sprintf('MC-%s-%04d', date('dmy'), $orderId);
