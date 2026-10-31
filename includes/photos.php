@@ -37,15 +37,15 @@ function photo_dir_prepare(): bool
     $guard = $dir . '/.htaccess';
     if (!is_file($guard)) {
         // Same guard that ships in the repo, in case the folder was recreated.
+        // Keep this minimal: shared hosts refuse "Options" beyond -Indexes and
+        // refuse php_flag here, and a refused directive makes the server return
+        // 500 for every photo in the folder. Blocking the executable extensions
+        // is what actually does the work, and it is accepted everywhere.
         @file_put_contents($guard, implode("\n", [
             '# Uploaded fish photos live here. Images only — nothing may be executed.',
-            '<FilesMatch "\\.(php|phps|phar|phtml|pht|inc|pl|py|cgi|sh|bash|html?|htaccess)$">',
+            '<FilesMatch "\\.(php|phps|phar|phtml|pht|inc|pl|py|cgi|sh|bash|html?)$">',
             '    Require all denied',
             '</FilesMatch>',
-            '<IfModule mod_php.c>',
-            '    php_flag engine off',
-            '</IfModule>',
-            'Options -Indexes -ExecCGI',
             '',
         ]));
     }
