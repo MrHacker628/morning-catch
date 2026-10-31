@@ -66,7 +66,7 @@ function send_email_receipt(array $order): bool
 }
 
 /**
- * Low-level sender. Uses PHPMailer over SMTP (recommended),
+ * Low-level sender. Uses Brevo's HTTPS API, PHPMailer over SMTP,
  * PHP mail(), or just writes to the log in 'log' mode.
  */
 function send_mail(string $toEmail, string $toName, string $subject, string $html, string $text): bool
@@ -78,6 +78,10 @@ function send_mail(string $toEmail, string $toName, string $subject, string $htm
         // the success screen must not tell them a receipt is on its way.
         log_msg("EMAIL (log mode, NOT sent) to {$toEmail}: {$subject}\n{$text}");
         return false;
+    }
+
+    if ($transport === 'brevo') {
+        return send_mail_brevo($toEmail, $toName, $subject, $html, $text);
     }
 
     $mail = new PHPMailer(true);   // true = throw exceptions on errors
@@ -333,6 +337,67 @@ function send_whatsapp(string $to, string $text, ?array $templateParams = null):
 }
 
 /** Small cURL POST helper → [httpStatus, responseBody] */
+/**
+ * Send through Brevo's transactional email API over plain HTTPS.
+ *
+ * Why this exists: shared and free hosting usually blocks the SMTP ports
+ * (25, 465, 587) and often disables PHP's mail() as well, so neither of the
+ * other transports can get a receipt out. Port 443 is always open — the shop
+ * already talks to Razorpay over it — so an HTTPS email API works where SMTP
+ * cannot.
+ *
+ * Setup: brevo.com → Senders & Domains → verify the from address, then
+ * SMTP & API → API Keys → create one, and put it in mail.brevo_api_key.
+ * Brevo will not send from an address it has not verified.
+ */
+function send_mail_brevo(string $toEmail, string $toName, string $subject, string $html, string $text): bool
+{
+    $key = trim((string) cfg('mail.brevo_api_key', ''));
+    if ($key === '' || str_starts_with($key, 'YOUR_')) {
+        log_msg('EMAIL not sent: mail.transport is brevo but mail.brevo_api_key is empty.');
+        return false;
+    }
+
+    $from = (string) cfg('mail.from_email', '');
+    if ($from === '') {
+        log_msg('EMAIL not sent: mail.from_email is empty.');
+        return false;
+    }
+
+    $payload = [
+        'sender'      => ['name' => (string) cfg('mail.from_name', cfg('shop.name', 'Morning Catch')), 'email' => $from],
+        'to'          => [['email' => $toEmail, 'name' => $toName !== '' ? $toName : $toEmail]],
+        'subject'     => $subject,
+        'htmlContent' => $html,
+        'textContent' => $text,
+    ];
+    if ($replyTo = trim((string) cfg('mail.reply_to', ''))) {
+        $payload['replyTo'] = ['email' => $replyTo];
+    }
+
+    // api_base override is only for tests; normally leave it unset.
+    $base = rtrim((string) cfg('mail.brevo_api_base', 'https://api.brevo.com'), '/');
+
+    [$status, $body] = http_post(
+        $base . '/v3/smtp/email',
+        json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '',
+        ['Content-Type: application/json', 'Accept: application/json', 'api-key: ' . $key]
+    );
+
+    if ($status >= 200 && $status < 300) return true;
+
+    // Say something useful: an unverified sender and a bad key look identical
+    // from the outside otherwise, and both are common on a first setup.
+    $hint = match (true) {
+        $status === 401 => ' — the API key was rejected. Copy it again from Brevo → SMTP & API → API Keys.',
+        $status === 400 && str_contains($body, 'sender') => " — Brevo will not send from {$from}. Verify that address under Senders & Domains first.",
+        $status === 0   => ' — could not reach Brevo at all. The host may be blocking outbound HTTPS.',
+        default         => '',
+    };
+    log_msg("EMAIL failed via Brevo (HTTP {$status}){$hint}", ['response' => substr($body, 0, 300)]);
+    return false;
+}
+
 function http_post(string $url, string $body, array $headers = [], ?string $basicAuth = null): array
 {
     $ch = curl_init($url);

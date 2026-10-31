@@ -68,6 +68,36 @@ You should see the green "It's yours!" screen. In **File Manager** next to your 
 
 ## 6. Email receipts
 
+### On free or shared hosting, use Brevo (not SMTP)
+
+Free hosts almost always block the SMTP ports (25, 465, 587) and disable PHP's
+`mail()`, so a receipt simply never leaves the server. Port 443 is open though —
+the shop already talks to Razorpay over it — so send email through an HTTPS API
+instead.
+
+1. Sign up at [brevo.com](https://www.brevo.com). The free tier covers a small
+   shop; check the current daily limit when you sign up.
+2. **Senders, Domains & Dedicated IPs** → add your from address and verify it.
+   Brevo will not send from an address it has not verified — this is the single
+   most common reason a first attempt fails.
+3. **SMTP & API** → **API Keys** → create a key.
+4. In your config file:
+   ```php
+   'mail' => [
+       'transport'     => 'brevo',
+       'brevo_api_key' => 'xkeysib-...',
+       'from_email'    => 'the address you verified',
+       'from_name'     => 'Morning Catch',
+       'reply_to'      => 'where replies should go',
+   ],
+   ```
+5. Place a test order. If no email arrives, open the log file next to your config
+   — the failure is written there in plain words (rejected key, unverified
+   sender, or the host blocking outbound).
+
+### On normal hosting, SMTP is fine
+
+
 1. hPanel → **Emails** → create a mailbox such as `orders@yourdomain.com`.
 2. In the config file:
    ```php

@@ -119,13 +119,22 @@ return [
     /* -----------------------------------------------------------------
        EMAIL RECEIPTS
        transport:
-         'smtp' → recommended. Create a mailbox in hPanel → Emails
-                  (e.g. orders@yourdomain.com) and use its password.
-         'mail' → PHP mail(). Works on Hostinger but often lands in spam.
-         'log'  → don't send; write the email to the log file (for testing).
+         'brevo' → send over HTTPS through Brevo's API. Use this on free or
+                   shared hosting, which usually blocks the SMTP ports and
+                   PHP's mail(). Free tier covers a small shop. Sign up at
+                   brevo.com, verify your from address under Senders &
+                   Domains, then SMTP & API → API Keys → create one and
+                   paste it into brevo_api_key below.
+         'smtp'  → a real mailbox. Good on Hostinger (hPanel → Emails).
+         'mail'  → PHP mail(). Often lands in spam, blocked on free hosts.
+         'log'   → don't send; write the email to the log file (for testing).
+                   Nothing reaches the customer and the receipt screen says so.
        ----------------------------------------------------------------- */
     'mail' => [
         'transport'  => 'smtp',
+
+        // Only for transport 'brevo'
+        'brevo_api_key' => 'YOUR_BREVO_API_KEY',
         'host'       => 'smtp.hostinger.com',
         'port'       => 465,
         'secure'     => 'ssl',                         // 'ssl' for 465, 'tls' for 587

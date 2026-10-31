@@ -209,10 +209,18 @@ $groups['Photos'] = $checks;
 /* ---- 5. Receipts ---- */
 $checks = [];
 $transport = (string) cfg('mail.transport', 'log');
-$checks[] = match ($transport) {
-    'smtp' => ['ok', 'Email by SMTP', 'Receipts will be sent for real. Test one order to be sure the mailbox password is right.'],
-    'mail' => ['warn', 'Email by PHP mail()', 'It works, but receipts often land in spam. SMTP is better.'],
-    default => ['warn', 'Email is in log mode', 'Nothing is sent yet — messages are written to the log file. Fine for testing, change before going live.'],
+$brevoKey = trim((string) cfg('mail.brevo_api_key', ''));
+$checks[] = match (true) {
+    $transport === 'brevo' && ($brevoKey === '' || str_starts_with($brevoKey, 'YOUR_'))
+        => ['fail', 'Brevo is selected but there is no API key', 'Put your key in mail.brevo_api_key, or set mail.transport back to \'log\'.'],
+    $transport === 'brevo'
+        => ['ok', 'Email by Brevo', 'Sends over HTTPS, so it works where SMTP is blocked. Brevo only sends from an address verified under Senders & Domains.'],
+    $transport === 'smtp'
+        => ['ok', 'Email by SMTP', 'Fine on normal hosting. Free hosts usually block the SMTP ports — if receipts never arrive, switch to \'brevo\'.'],
+    $transport === 'mail'
+        => ['warn', 'Email by PHP mail()', 'Often lands in spam, and most free hosts disable it. \'brevo\' is more reliable.'],
+    default
+        => ['warn', 'Email is in log mode', 'Nothing is sent — messages go to the log file and the buyer is told to keep their Order ID. Change this before going live.'],
 };
 $wa = (string) cfg('whatsapp.provider', 'none');
 $checks[] = in_array($wa, ['ultramsg', 'meta', 'twilio'], true)
