@@ -34,8 +34,16 @@ function photo_dir_prepare(): bool
     $dir = photo_dir();
     if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) return false;
 
+    // An older version of this file wrote a guard containing directives that
+    // LiteSpeed and most shared hosts refuse ("Options ... -ExecCGI",
+    // "php_flag"). A refused directive makes the server return 500 for every
+    // photo in the folder, so repair that guard in place rather than leaving
+    // the shop with broken images until someone edits it by hand.
     $guard = $dir . '/.htaccess';
-    if (!is_file($guard)) {
+    $stale = is_file($guard)
+        && preg_match('/ExecCGI|php_flag/i', (string) @file_get_contents($guard)) === 1;
+
+    if (!is_file($guard) || $stale) {
         // Same guard that ships in the repo, in case the folder was recreated.
         // Keep this minimal: shared hosts refuse "Options" beyond -Indexes and
         // refuse php_flag here, and a refused directive makes the server return
