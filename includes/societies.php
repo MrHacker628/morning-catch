@@ -129,6 +129,25 @@ function societies_public(): array
 }
 
 /**
+ * Did this order pay a delivery fee that the society rule may hand back?
+ * True while the building has not yet reached the threshold.
+ */
+function society_refund_pending(array $order): bool
+{
+    return !empty($order['society_id'])
+        && (float) ($order['delivery_fee'] ?? 0) > 0
+        && (int) ($order['delivery_waived'] ?? 0) === 0;
+}
+
+/** The promise, in one place so the receipt and the screen say the same thing. */
+function society_refund_promise(): string
+{
+    $n = society_threshold();
+    return "Delivery is on us once {$n} flats in your building order on the same day. "
+         . "If that happens today, this delivery fee comes back to you on the drop.";
+}
+
+/**
  * Orders today whose delivery fee the seller still owes back: they paid,
  * and their society reached the threshold afterwards.
  */

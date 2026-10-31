@@ -107,6 +107,7 @@ function order_public_view(array $order): array
         'total_amount'  => (float) $order['total_amount'],
         'fulfilment'    => $order['fulfilment'],
         'slot'          => $order['delivery_slot'],
+        'refund_promise' => society_refund_pending($order) ? society_refund_promise() : '',
         'email_sent'    => (bool) $order['email_sent'],
         'whatsapp_sent' => (bool) $order['whatsapp_sent'],
         'items'         => array_map(fn ($i) => [

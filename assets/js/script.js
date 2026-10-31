@@ -960,6 +960,14 @@
       ? `Receipt sent to your ${channels.join(' and ')}. Show the Order ID when you collect.`
       : 'Save your Order ID — show it when you collect. Your receipt will follow shortly.';
 
+    // A society order that paid delivery: repeat the promise on screen, so
+    // it is not something they only saw before paying.
+    const promise = $('#successPromise');
+    if (promise) {
+      promise.textContent = r.refund_promise || '';
+      promise.classList.toggle('hidden', !r.refund_promise);
+    }
+
     $('#success').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 

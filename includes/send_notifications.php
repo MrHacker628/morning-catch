@@ -131,6 +131,7 @@ function email_receipt_text(array $order): string
     $t .= 'TOTAL PAID: ' . inr($order['total_amount']) . "\n\n";
     $t .= receipt_when_where($order) . "\n";
     if ($order['fulfilment'] === 'delivery' && $order['delivery_address']) $t .= "Address: {$order['delivery_address']}\n";
+    if (society_refund_pending($order)) $t .= "\n" . society_refund_promise() . "\n";
     $t .= "\nPayment ID: {$order['razorpay_payment_id']}\n\n— {$shop}\n";
     return $t;
 }
@@ -145,6 +146,11 @@ function email_receipt_html(array $order): string
     $date  = h(date('l, j F Y', strtotime((string) ($order['paid_at'] ?: 'now'))));
     $addr  = $order['fulfilment'] === 'delivery' && $order['delivery_address']
         ? '<p style="margin:6px 0 0;color:#33505C;font-size:14px;">' . nl2br(h($order['delivery_address'])) . '</p>' : '';
+    // Society orders that paid delivery: put the promise in writing, so the
+    // buyer has a record of it and not just a line on a checkout screen.
+    $addr .= society_refund_pending($order)
+        ? '<p style="margin:10px 0 0;padding:10px 12px;background:#FDF1D6;border-radius:10px;color:#8A5D06;font-size:13px;">'
+          . h(society_refund_promise()) . '</p>' : '';
     $notes = $order['notes'] ? '<p style="margin:6px 0 0;color:#33505C;font-size:14px;">Note: ' . h($order['notes']) . '</p>' : '';
 
     $rows = '';
@@ -430,6 +436,7 @@ function send_seller_alert(array $order, array $oversold = []): void
     $text .= "{$order['customer_name']} · +{$order['customer_phone']}\n";
     $text .= receipt_when_where($order) . "\n";
     if ($order['fulfilment'] === 'delivery') $text .= "📍 {$order['delivery_address']}\n";
+    if (society_refund_pending($order)) $text .= "\n🏢 " . society_refund_promise() . "\n";
     if ($order['notes']) $text .= "📝 {$order['notes']}\n";
     $text .= "\n{$lines}";
     if ($oversold) {
