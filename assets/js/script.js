@@ -185,7 +185,7 @@
   function fishArt(p) {
     const c = ART_COLORS[(p.id - 1) % ART_COLORS.length];
     if (p.category === 'shellfish' && /crab/i.test(p.name)) {
-      return `<svg viewBox="0 0 200 120" class="h-28 w-auto drop-shadow-sm" aria-hidden="true">
+      return `<svg viewBox="0 0 200 120" class="h-36 w-auto drop-shadow-sm" aria-hidden="true">
         <g stroke="${c.fin}" stroke-width="5" stroke-linecap="round" fill="none">
           <path d="M62 70 L35 85 M62 78 L38 98 M138 70 L165 85 M138 78 L162 98"/>
           <path d="M70 52 Q50 25 40 30 M130 52 Q150 25 160 30"/>
@@ -198,7 +198,7 @@
     }
     if (p.category === 'shellfish') {
       // Prawn
-      return `<svg viewBox="0 0 200 120" class="h-28 w-auto drop-shadow-sm" aria-hidden="true">
+      return `<svg viewBox="0 0 200 120" class="h-36 w-auto drop-shadow-sm" aria-hidden="true">
         <path d="M150 35 Q180 60 150 92 Q110 110 70 95 Q45 85 40 60" fill="none" stroke="${c.body}" stroke-width="26" stroke-linecap="round"/>
         <path d="M150 35 Q180 60 150 92 Q110 110 70 95" fill="none" stroke="${c.belly}" stroke-width="6" stroke-dasharray="4 10" stroke-linecap="round"/>
         <path d="M40 60 L18 40 M40 60 L15 62 M40 60 L22 80" stroke="${c.fin}" stroke-width="4" stroke-linecap="round"/>
@@ -209,7 +209,7 @@
     // Fish — slightly rounder for pomfret, slimmer for others
     const round = /pomfret/i.test(p.name);
     const ry = round ? 34 : 22;
-    return `<svg viewBox="0 0 200 120" class="h-28 w-auto drop-shadow-sm" aria-hidden="true">
+    return `<svg viewBox="0 0 200 120" class="h-36 w-auto drop-shadow-sm" aria-hidden="true">
       <path d="M152 60 L192 ${round ? 30 : 36} L184 60 L192 ${round ? 90 : 84} Z" fill="${c.fin}"/>
       <ellipse cx="95" cy="60" rx="68" ry="${ry}" fill="${c.body}"/>
       <path d="M30 62 Q95 ${60 + ry + 6} 160 62 Q95 ${60 + ry / 2} 30 62Z" fill="${c.belly}"/>
@@ -426,12 +426,18 @@
       const disabled = soldOut || !state.bookingOpen || available < p.min_qty;
       const unitWord = p.unit === 'kg' ? 'kg' : 'piece';
 
-      // A real photo fills the whole header area; without one we draw the fish.
-      // Absolute positioning keeps every card the same height whatever shape
-      // the seller's photo happens to be.
+      /* A real photo, shown whole however the seller framed it.
+         Sellers shoot on a phone, often portrait and close up, and
+         cropping to fill the card was cutting the head and tail off the
+         fish — the one thing a buyer needs to see. So the photo is
+         contained, and the space around it is filled with a blurred,
+         zoomed copy of itself rather than a blank band. Every card stays
+         the same shape and nothing is lost. */
       const art = p.image_url
-        ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async"
-                class="absolute inset-0 h-full w-full object-cover" />`
+        ? `<img src="${esc(p.image_url)}" alt="" aria-hidden="true" loading="lazy" decoding="async"
+                class="absolute inset-0 h-full w-full scale-110 object-cover blur-lg" />
+           <img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async"
+                class="absolute inset-0 h-full w-full object-contain" />`
         : fishArt(p);
       const bg = ART_COLORS[(p.id - 1) % ART_COLORS.length].bg;
 
@@ -439,7 +445,7 @@
       <article class="rise flex flex-col overflow-hidden rounded-3xl bg-white shadow-card ${soldOut ? 'opacity-70' : ''}"
                style="animation-delay:${i * 50}ms" data-id="${p.id}">
         <!-- Art / photo -->
-        <div class="relative grid h-40 place-items-center" style="background:${bg}">
+        <div class="relative grid aspect-[4/3] place-items-center overflow-hidden" style="background:${bg}">
           ${art}
           ${p.badge && !soldOut ? `<span class="absolute left-3 top-3 rounded-full bg-ink px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-sand">${esc(p.badge)}</span>` : ''}
           ${soldOut ? `<span class="absolute inset-0 grid place-items-center bg-white/60 font-display text-2xl font-bold text-ink">Sold out</span>` : ''}

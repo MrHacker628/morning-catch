@@ -1,12 +1,4 @@
-# Uploaded fish photos live here. Images only — nothing in this folder may
-# ever be executed, whatever its name.
-#
-# Deliberately minimal. Shared hosts (LiteSpeed, and most free hosting)
-# refuse "Options" beyond -Indexes and refuse php_flag in an .htaccess, and
-# when a directive is refused the server returns 500 for EVERY file in the
-# folder — including the photos. Directory listing is already switched off
-# by the site's main .htaccess, which this folder inherits.
-
+# Uploaded fish photos live here. Images only — nothing may be executed.
 <FilesMatch "\.(php|phps|phar|phtml|pht|inc|pl|py|cgi|sh|bash|html?)$">
     Require all denied
 </FilesMatch>

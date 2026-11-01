@@ -582,7 +582,11 @@ if ($isAdmin) {
       <!-- ============================ TODAY'S CATCH ============================ -->
       <h1 class="font-display text-3xl font-bold">Today's catch</h1>
       <p class="text-sm text-ink-soft">Update prices and stock each morning. "Left" goes down by itself as people pay.</p>
-      <p class="mt-1 text-sm text-ink-soft">A real photo sells far more than a drawing — add one for each fish when you have a minute.</p>
+      <p class="mt-1 text-sm text-ink-soft">
+        A real photo sells far more than a drawing — add one for each fish when you have a minute.
+        Shoot the whole fish in frame — the preview beside each one is exactly what buyers see.
+        Any shape works: nothing gets cropped off.
+      </p>
 
       <form method="post" enctype="multipart/form-data" class="mt-5 space-y-3">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>" /><input type="hidden" name="action" value="save_products" /><input type="hidden" name="tab" value="catch" />
@@ -602,10 +606,21 @@ if ($isAdmin) {
             <!-- Photo: what the customer sees on the shop page -->
             <div class="mt-3 flex items-center gap-3 rounded-2xl bg-sand p-3">
               <?php if (!empty($p['image_url'])): ?>
-                <img src="<?= h('../' . $p['image_url']) ?>" alt="" class="h-16 w-16 shrink-0 rounded-xl object-cover" />
+                <!-- Same 4:3 crop the shop page uses, so the seller sees what
+                     the customer sees and can retake a badly framed photo. -->
+                <figure class="shrink-0">
+                  <!-- Exactly the shop's treatment: whole photo, blurred fill
+                       behind. The caption promises this is what buyers see, so
+                       it has to stay in step with the card. -->
+                  <span class="relative block aspect-[4/3] w-32 overflow-hidden rounded-xl bg-sand-dark">
+                    <img src="<?= h('../' . $p['image_url']) ?>" alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover blur-md" />
+                    <img src="<?= h('../' . $p['image_url']) ?>" alt="" class="absolute inset-0 h-full w-full object-contain" />
+                  </span>
+                  <figcaption class="mt-1 text-center text-[11px] text-ink-soft">How buyers see it</figcaption>
+                </figure>
               <?php else: ?>
-                <span class="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-sand-dark text-ink-soft" aria-hidden="true">
-                  <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-5 5-2-2-3 3"/></svg>
+                <span class="grid aspect-[4/3] w-32 shrink-0 place-items-center rounded-xl bg-sand-dark text-ink-soft" aria-hidden="true">
+                  <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-5 5-2-2-3 3"/></svg>
                 </span>
               <?php endif; ?>
               <div class="min-w-0 flex-1">
