@@ -509,12 +509,21 @@ if ($isAdmin) {
       <!-- ============================ SOCIETIES ============================ -->
       <?php $societies = db()->query('SELECT * FROM societies ORDER BY sort_order, name')->fetchAll(); ?>
       <h1 class="font-display text-3xl font-bold">Societies</h1>
-      <p class="text-sm text-ink-soft">
-        Buildings the van drops to in one stop. Once
-        <strong><?= (int) society_threshold() ?></strong> different flats in the same society have ordered
-        for the day, delivery is free for all of them and the van goes once, at <?= h(society_slot()) ?>.
-      </p>
-      <p class="mt-1 text-sm text-ink-soft">The flats who ordered before the <?= (int) society_threshold() ?>rd still paid — the Orders tab lists who to hand it back to.</p>
+      <?php $sThreshold = society_threshold(); ?>
+      <?php if ($sThreshold <= 1): ?>
+        <p class="text-sm text-ink-soft">
+          Buildings the van drops to in one stop. Delivery to these is <strong>always free</strong>,
+          from the first flat, and the van goes once at <?= h(society_slot()) ?>.
+        </p>
+        <p class="mt-1 text-sm text-ink-soft">To only make it free once several flats have ordered, set <code>society_threshold</code> in your config file.</p>
+      <?php else: ?>
+        <p class="text-sm text-ink-soft">
+          Buildings the van drops to in one stop. Once
+          <strong><?= (int) $sThreshold ?></strong> different flats in the same society have ordered
+          for the day, delivery is free for all of them and the van goes once, at <?= h(society_slot()) ?>.
+        </p>
+        <p class="mt-1 text-sm text-ink-soft">Flats who ordered before that still paid — the Orders tab lists who to hand it back to.</p>
+      <?php endif; ?>
 
       <form method="post" class="mt-5 space-y-3">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>" /><input type="hidden" name="action" value="save_societies" /><input type="hidden" name="tab" value="societies" />

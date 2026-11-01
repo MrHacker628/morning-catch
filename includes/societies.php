@@ -118,12 +118,19 @@ function societies_public(): array
 
     return array_map(static function (array $s) use ($counts, $threshold): array {
         $ordered = $counts[(int) $s['id']] ?? 0;
+
+        // The question the shopper actually has is "will MY delivery be
+        // free?", and their own order counts towards the threshold. With
+        // two flats in and a threshold of three, the person reading this
+        // IS the third — so it is free for them, and the page has to say
+        // the same thing the server is about to charge.
         return [
-            'id'      => (int) $s['id'],
-            'name'    => $s['name'],
-            'area'    => $s['area'],
-            'ordered' => $ordered,
-            'needed'  => max(0, $threshold - $ordered),
+            'id'          => (int) $s['id'],
+            'name'        => $s['name'],
+            'area'        => $s['area'],
+            'ordered'     => $ordered,
+            'free_for_me' => ($ordered + 1) >= $threshold,
+            'more_needed' => max(0, $threshold - $ordered - 1),
         ];
     }, societies_active());
 }
@@ -143,6 +150,7 @@ function society_refund_pending(array $order): bool
 function society_refund_promise(): string
 {
     $n = society_threshold();
+    if ($n <= 1) return 'Delivery to your society is on us.';
     return "Delivery is on us once {$n} flats in your building order on the same day. "
          . "If that happens today, this delivery fee comes back to you on the drop.";
 }

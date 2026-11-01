@@ -572,7 +572,7 @@
     // is going anyway. The server decides this for real at checkout — this
     // is only so the bill on screen matches what they will be charged.
     const society = (CONFIG.SOCIETIES || []).find((x) => x.id === state.societyId);
-    const societyFree = !!society && society.needed === 0;
+    const societyFree = !!society && society.free_for_me;
 
     const delivery = state.fulfilment === 'pickup' || subtotal === 0 || freeOk || societyFree
       ? 0 : CONFIG.DELIVERY_FEE;
@@ -730,15 +730,21 @@
       return;
     }
 
-    // Tell them honestly where the order stands against the threshold
+    // Say exactly what the server is about to charge. "free_for_me"
+    // already counts this order, so with two flats in and a threshold of
+    // three the person reading this is the third and pays nothing.
     hint.classList.remove('hidden');
-    if (chosen.needed === 0) {
-      hint.textContent = `${chosen.ordered} flats here have ordered today — your delivery is free.`;
+    const flats = (n) => `${n} ${n === 1 ? 'flat' : 'flats'}`;
+
+    if (chosen.free_for_me && chosen.ordered === 0) {
+      hint.textContent = 'We deliver to your society on one evening run — delivery is free.';
+    } else if (chosen.free_for_me) {
+      hint.textContent = `${flats(chosen.ordered)} here ${chosen.ordered === 1 ? 'has' : 'have'} ordered today — your delivery is free.`;
     } else if (chosen.ordered === 0) {
-      hint.textContent = `Be the first in your building. Delivery is ${money(CONFIG.DELIVERY_FEE)} today, and we hand it back if ${CONFIG.SOCIETY_THRESHOLD - 1} more flats order.`;
+      const more = chosen.more_needed === 1 ? '1 more flat orders' : `${chosen.more_needed} more flats order`;
+      hint.textContent = `Be the first in your building. Delivery is ${money(CONFIG.DELIVERY_FEE)} today, and we hand it back if ${more}.`;
     } else {
-      const more = chosen.needed;
-      hint.textContent = `${chosen.ordered} ${chosen.ordered === 1 ? 'flat has' : 'flats have'} ordered today. ${more} more and delivery is free for all of you — tell your neighbours.`;
+      hint.textContent = `${flats(chosen.ordered)} ${chosen.ordered === 1 ? 'has' : 'have'} ordered today. ${chosen.more_needed} more and delivery is free for all of you — tell your neighbours.`;
     }
   }
 
